@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <title>Kalender · SoSe 2026</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <a class="link pressable" href="index.html"><span id="backIcon"></span> Übersicht</a>
+      <button class="icon-btn pressable" id="addBtn" aria-label="Termin hinzufügen"></button>
+    </div>
+
+    <div class="cal-head">
+      <div class="cal-title" id="calTitle">—</div>
+      <div class="cal-nav">
+        <button class="nav-btn pressable" id="prevBtn" aria-label="Vorheriger Monat"></button>
+        <button class="nav-btn pressable" id="nextBtn" aria-label="Nächster Monat"></button>
+      </div>
+    </div>
+
+    <div class="weekday-row">
+      <span>M</span><span>D</span><span>M</span><span>D</span><span>F</span>
+      <span class="we">S</span><span class="we">S</span>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="legend">
+      <span><i class="bg-exam"></i>Klausur</span>
+      <span><i class="bg-lecture"></i>Vorlesung</span>
+      <span><i class="bg-block"></i>Block</span>
+      <span><i class="bg-holiday"></i>Feiertag</span>
+    </div>
+
+    <div class="cal-footer">
+      <button class="today-pill pressable" id="todayBtn">Heute</button>
+    </div>
+
+    <div style="text-align:center;margin-top:22px;">
+      <button id="resetBtn" style="color:var(--text-3);font-size:13px;padding:8px;">Plan auf Originalstand zurücksetzen</button>
+    </div>
+  </main>
+
+  <!-- Bottom Sheet -->
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="grabber"></div>
+    <div id="sheetBody"></div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let data = loadEvents();
+    const now = new Date();
+    let view = { year: now.getFullYear(), month: now.getMonth() };
+
+    /* Icons */
+    document.getElementById("backIcon").innerHTML = ICON.back;
+    document.getElementById("addBtn").innerHTML = ICON.plus;
+    document.getElementById("prevBtn").innerHTML = ICON.chevL;
+    document.getElementById("nextBtn").innerHTML = ICON.chevR;
+
+    /* ============================ Grid ============================ */
+    function renderCalendar() {
+      document.getElementById("calTitle").textContent =
+        `${MONTHS[view.month]} ${view.year}`;
+
+      const first = new Date(view.year, view.month, 1);
+      const startWeekday = (first.getDay() + 6) % 7; // Montag = 0
+      const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
+      const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
+      const tKey = todayKey();
+
+      let html = "";
+      for (let i = 0; i < totalCells; i++) {
+        const cellDate = new Date(view.year, view.month, 1 - startWeekday + i);
+        const key = toKey(cellDate);
+        const out = cellDate.getMonth() !== view.month;
+        const weekday = cellDate.getDay();
+        const we = weekday === 0 || weekday === 6;
+        const isToday = key === tKey;
+        const isFirst = cellDate.getDate() === 1 && !out;
+        const evs = getEventsForDate(data, key);
+
+        let dots = "";
+        if (evs.length) {
+          const shown = evs.slice(0, 3);
+          dots = '<div class="dots">' +
+            shown.map((e) => {
+              const c = (CATS[e.category] || CATS.lecture).cls;
+              return `<span class="dot bg-${c}"></span>`;
+            }).join("") +
+            (evs.length > 3 ? '<span class="more">+</span>' : "") +
+            "</div>";
+        } else {
+          dots = '<div class="dots"></div>';
+        }
+
+        const classes = ["cell", "tappable"];
+        if (out) classes.push("out");
+        if (we) classes.push("we");
+        if (isToday) classes.push("today");
+
+        html += `<button class="${classes.join(" ")}" data-key="${key}">
+          ${isFirst ? `<span class="month-tag">${MONTHS_SHORT[view.month]}</span>` : ""}
+          <span class="daynum">${cellDate.getDate()}</span>
+          ${dots}
+        </button>`;
+      }
+      const grid = document.getElementById("grid");
+      grid.innerHTML = html;
+      grid.querySelectorAll(".cell").forEach((c) =>
+        c.addEventListener("click", () => openDay(c.dataset.key))
+      );
+    }
+
+    /* ============================ Sheet plumbing ============================ */
+    const scrim = document.getElementById("scrim");
+    const sheet = document.getElementById("sheet");
+    const sheetBody = document.getElementById("sheetBody");
+
+    function openSheet(htmlContent) {
+      sheetBody.innerHTML = htmlContent;
+      scrim.classList.add("open");
+      requestAnimationFrame(() => sheet.classList.add("open"));
+    }
+    function closeSheet() {
+      sheet.classList.remove("open");
+      scrim.classList.remove("open");
+    }
+    scrim.addEventListener("click", closeSheet);
+
+    /* ---- Tagesansicht ---- */
+    function openDay(key) {
+      const evs = getEventsForDate(data, key);
+      const dt = parseKey(key);
+      let body = `
+        <div class="sheet-title">${dt.getDate()}. ${MONTHS[dt.getMonth()]}</div>
+        <div class="sheet-sub">${DAYS_LONG[dt.getDay()]} ${dt.getFullYear()} · ${relativeLabel(daysUntil(key))}</div>`;
+
+      if (evs.length) {
+        body += '<div class="day-events">';
+        body += evs.map((e) => {
+          const cat = CATS[e.category] || CATS.lecture;
+          const meta = [e.time, e.location].filter(Boolean).join(" · ") || cat.label;
+          return `
+            <button class="ev-card pressable" data-edit="${e.id}">
+              <span class="bar bg-${cat.cls}"></span>
+              <span class="info">
+                <span class="t">${e.title}</span>
+                <span class="m">${meta}</span>
+              </span>
+              <span class="chev">${ICON.chevR}</span>
+            </button>`;
+        }).join("");
+        body += "</div>";
+      } else {
+        body += '<div class="empty-hint">Keine Termine an diesem Tag.</div>';
+      }
+
+      body += `<button class="add-row pressable" data-new="${key}">
+        <span class="plus">${ICON.plus}</span> Neuer Termin
+      </button>`;
+
+      openSheet(body);
+
+      sheetBody.querySelectorAll("[data-edit]").forEach((b) =>
+        b.addEventListener("click", () => openForm(key, b.dataset.edit))
+      );
+      sheetBody.querySelector("[data-new]")
+        .addEventListener("click", () => openForm(key, null));
+    }
+
+    /* ---- Formular (Erstellen / Bearbeiten) ---- */
+    function openForm(key, id) {
+      let ev = { title: "", category: "lecture", time: "", location: "", note: "" };
+      if (id) {
+        const found = (data[key] || []).find((x) => x.id === id);
+        if (found) ev = { ...ev, ...found };
+      }
+
+      const segs = Object.entries(CATS).map(([k, c]) =>
+        `<button type="button" class="seg s-${c.cls}" data-cat="${k}" aria-pressed="${ev.category === k}">
+          <i class="bg-${c.cls}"></i>${c.label}
+        </button>`
+      ).join("");
+
+      const body = `
+        <div class="sheet-title">${id ? "Termin bearbeiten" : "Neuer Termin"}</div>
+        <div class="sheet-sub">Alle Änderungen werden sofort gespeichert.</div>
+
+        <div class="field">
+          <label for="f-title">Titel</label>
+          <input class="input" id="f-title" type="text" placeholder="z. B. Mathe Klausur" value="${escapeAttr(ev.title)}" />
+        </div>
+
+        <div class="field">
+          <label>Kategorie</label>
+          <div class="segmented" id="f-seg">${segs}</div>
+        </div>
+
+        <div class="field">
+          <label for="f-date">Datum</label>
+          <input id="f-date" type="date" value="${key}" />
+        </div>
+
+        <div class="field">
+          <label for="f-time">Uhrzeit <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
+          <input class="input" id="f-time" type="text" inputmode="numeric" placeholder="z. B. 14:00 oder 09:00–15:00" value="${escapeAttr(ev.time || "")}" />
+        </div>
+
+        <div class="field">
+          <label for="f-loc">Ort <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
+          <input class="input" id="f-loc" type="text" placeholder="z. B. Online · Raum A" value="${escapeAttr(ev.location || "")}" />
+        </div>
+
+        <div class="field">
+          <label for="f-note">Notiz <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
+          <textarea class="textarea" id="f-note" placeholder="Themen, Hilfsmittel …">${escapeHtml(ev.note || "")}</textarea>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-save pressable" id="f-save">Speichern</button>
+          ${id ? '<button class="btn btn-delete pressable" id="f-del">Termin löschen</button>' : ""}
+          <button class="btn btn-cancel pressable" id="f-cancel">Abbrechen</button>
+        </div>`;
+
+      openSheet(body);
+
+      let selectedCat = ev.category;
+      const segWrap = sheetBody.querySelector("#f-seg");
+      segWrap.querySelectorAll(".seg").forEach((s) =>
+        s.addEventListener("click", () => {
+          selectedCat = s.dataset.cat;
+          segWrap.querySelectorAll(".seg").forEach((x) =>
+            x.setAttribute("aria-pressed", x === s ? "true" : "false"));
+        })
+      );
+
+      const titleEl = sheetBody.querySelector("#f-title");
+      const saveBtn = sheetBody.querySelector("#f-save");
+      function syncSave() { saveBtn.disabled = !titleEl.value.trim(); }
+      titleEl.addEventListener("input", syncSave);
+      syncSave();
+
+      saveBtn.addEventListener("click", () => {
+        const newDate = sheetBody.querySelector("#f-date").value || key;
+        const record = {
+          id: id || undefined,
+          title: titleEl.value.trim(),
+          category: selectedCat,
+          time: sheetBody.querySelector("#f-time").value.trim(),
+          location: sheetBody.querySelector("#f-loc").value.trim(),
+          note: sheetBody.querySelector("#f-note").value.trim(),
+        };
+        if (!record.title) return;
+        upsertEvent(data, newDate, record);
+        view = { year: parseKey(newDate).getFullYear(), month: parseKey(newDate).getMonth() };
+        renderCalendar();
+        closeSheet();
+        toast(id ? "Gespeichert" : "Termin hinzugefügt");
+      });
+
+      if (id) {
+        sheetBody.querySelector("#f-del").addEventListener("click", () => {
+          deleteEvent(data, id);
+          renderCalendar();
+          closeSheet();
+          toast("Termin gelöscht");
+        });
+      }
+      sheetBody.querySelector("#f-cancel").addEventListener("click", () => {
+        if (id) { openDay(key); } else { closeSheet(); }
+      });
+
+      if (!id) setTimeout(() => titleEl.focus(), 350);
+    }
+
+    /* ---- kleine Escape-Helfer ---- */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    }
+    function escapeAttr(s) {
+      return escapeHtml(s).replace(/"/g, "&quot;");
+    }
+
+    /* ============================ Steuerung ============================ */
+    function shiftMonth(delta) {
+      const d = new Date(view.year, view.month + delta, 1);
+      view = { year: d.getFullYear(), month: d.getMonth() };
+      renderCalendar();
+    }
+    document.getElementById("prevBtn").addEventListener("click", () => shiftMonth(-1));
+    document.getElementById("nextBtn").addEventListener("click", () => shiftMonth(1));
+    document.getElementById("todayBtn").addEventListener("click", () => {
+      const n = new Date();
+      view = { year: n.getFullYear(), month: n.getMonth() };
+      renderCalendar();
+      openDay(todayKey());
+    });
+    document.getElementById("addBtn").addEventListener("click", () =>
+      openForm(todayKey(), null)
+    );
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (confirm("Alle eigenen Änderungen verwerfen und den Original-Studienplan wiederherstellen?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        data = loadEvents();
+        renderCalendar();
+        toast("Plan zurückgesetzt");
+      }
+    });
+
+    /* Esc schließt das Sheet */
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeSheet();
+    });
+
+    /* Deep-Link von der Übersicht: ?d=YYYY-MM-DD */
+    const params = new URLSearchParams(location.search);
+    const deep = params.get("d");
+    if (deep && /^\d{4}-\d{2}-\d{2}$/.test(deep)) {
+      const dt = parseKey(deep);
+      view = { year: dt.getFullYear(), month: dt.getMonth() };
+    }
+
+    renderCalendar();
+    if (deep && /^\d{4}-\d{2}-\d{2}$/.test(deep)) openDay(deep);
+  </script>
+</body>
+</html>

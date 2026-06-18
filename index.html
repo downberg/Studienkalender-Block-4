@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Studienkalender" />
+  <title>Studienkalender · SoSe 2026</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div class="eyebrow">Sommersemester 2026</div>
+      <h1>Übersicht</h1>
+      <div class="today-date" id="todayDate"></div>
+    </header>
+
+    <section>
+      <div class="section-head">
+        <h2>Nächste Klausuren</h2>
+        <span class="meta">Countdown</span>
+      </div>
+      <div class="deadline-list" id="deadlines"></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Nächste Termine</h2>
+      </div>
+      <div class="up-list" id="upcoming"></div>
+    </section>
+
+    <a class="btn-primary pressable" href="calendar.html" id="toCal">
+      <span></span> Zum Kalender
+    </a>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const data = loadEvents();
+
+    /* Heutiges Datum */
+    document.getElementById("todayDate").textContent =
+      formatLongDate(todayKey());
+
+    /* Kalender-Button-Icon */
+    document.querySelector("#toCal span").innerHTML = ICON.cal;
+
+    /* ---- Nächste Klausuren (Top-Deadlines) ---- */
+    function renderDeadlines() {
+      const exams = allEventsSorted(data)
+        .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0)
+        .slice(0, 3);
+
+      const wrap = document.getElementById("deadlines");
+      if (exams.length === 0) {
+        wrap.innerHTML =
+          '<div class="up-list"><div class="empty-hint">Keine anstehenden Klausuren 🎉</div></div>';
+        return;
+      }
+      wrap.innerHTML = exams.map((e) => {
+        const d = daysUntil(e.date);
+        const count = d > 1
+          ? `<span class="num">${d}</span><span class="unit">Tage</span>`
+          : `<span class="soon">${relativeLabel(d)}</span>`;
+        const dt = parseKey(e.date);
+        const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
+        return `
+          <a class="deadline-card c-exam pressable" href="calendar.html?d=${e.date}">
+            <div class="deadline-count">${count}</div>
+            <div class="deadline-body">
+              <div class="title">${e.title}</div>
+              <div class="sub">${sub}</div>
+              <span class="tag">Klausur</span>
+            </div>
+          </a>`;
+      }).join("");
+    }
+
+    /* ---- Nächste Termine (alle Kategorien) ---- */
+    function renderUpcoming() {
+      const list = allEventsSorted(data)
+        .filter((e) => daysUntil(e.date) >= 0)
+        .slice(0, 5);
+
+      const wrap = document.getElementById("upcoming");
+      if (list.length === 0) {
+        wrap.innerHTML = '<div class="empty-hint">Keine bevorstehenden Termine.</div>';
+        return;
+      }
+      wrap.innerHTML = list.map((e) => {
+        const dt = parseKey(e.date);
+        const cat = CATS[e.category] || CATS.lecture;
+        const meta = [e.time, e.location].filter(Boolean).join(" · ") || cat.label;
+        return `
+          <a class="up-item pressable" href="calendar.html?d=${e.date}">
+            <div class="up-date">
+              <div class="d">${dt.getDate()}</div>
+              <div class="m">${MONTHS_SHORT[dt.getMonth()]}</div>
+            </div>
+            <span class="up-dot bg-${cat.cls}"></span>
+            <div class="up-main">
+              <div class="t">${e.title}</div>
+              <div class="s">${meta}</div>
+            </div>
+            <div class="up-when">${relativeLabel(daysUntil(e.date))}</div>
+          </a>`;
+      }).join("");
+    }
+
+    renderDeadlines();
+    renderUpcoming();
+  </script>
+</body>
+</html>
