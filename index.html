@@ -52,8 +52,7 @@
     /* ---- Nächste Klausuren (Top-Deadlines) ---- */
     function renderDeadlines() {
       const exams = allEventsSorted(data)
-        .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0)
-        .slice(0, 3);
+        .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
 
       const wrap = document.getElementById("deadlines");
       if (exams.length === 0) {
