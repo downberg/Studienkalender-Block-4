@@ -70,6 +70,25 @@
         </a>`;
     }
 
+    /* Restliche Klausuren als kompakte Listenzeile */
+    function examListItemHTML(e) {
+      const dt = parseKey(e.date);
+      const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
+      return `
+        <a class="up-item pressable" href="calendar.html?d=${e.date}">
+          <div class="up-date">
+            <div class="d">${dt.getDate()}</div>
+            <div class="m">${MONTHS_SHORT[dt.getMonth()]}</div>
+          </div>
+          <span class="up-dot bg-exam"></span>
+          <div class="up-main">
+            <div class="t">${e.title}</div>
+            <div class="s">${sub}</div>
+          </div>
+          <div class="up-when">${relativeLabel(daysUntil(e.date))}</div>
+        </a>`;
+    }
+
     function renderDeadlines() {
       const exams = allEventsSorted(data)
         .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
@@ -81,19 +100,23 @@
         return;
       }
 
-      const visible = showAllExams ? exams : exams.slice(0, 3);
+      // Immer die nächsten 3 als große Karten
+      const top3 = exams.slice(0, 3);
       const rest = exams.slice(3);
 
-      let html = visible.map(examCardHTML).join("");
+      let html = top3.map(examCardHTML).join("");
 
-      if (rest.length > 0 && !showAllExams) {
-        html += `<button class="show-more-btn pressable" id="showMoreBtn">
-          Alle ${exams.length} Klausuren anzeigen
-        </button>`;
-      } else if (showAllExams && exams.length > 3) {
-        html += `<button class="show-more-btn pressable" id="showMoreBtn">
-          Weniger anzeigen
-        </button>`;
+      // Button + Liste nur, wenn es weitere Klausuren gibt
+      if (rest.length > 0) {
+        if (showAllExams) {
+          html += `<div class="up-list" style="margin-top:12px;">`
+            + rest.map(examListItemHTML).join("")
+            + `</div>`;
+          html += `<button class="show-more-btn pressable" id="showMoreBtn">Weniger anzeigen</button>`;
+        } else {
+          html += `<button class="show-more-btn pressable" id="showMoreBtn">`
+            + `Alle ${exams.length} Klausuren anzeigen</button>`;
+        }
       }
 
       wrap.innerHTML = html;
