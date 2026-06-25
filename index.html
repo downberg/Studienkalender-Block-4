@@ -70,25 +70,6 @@
         </a>`;
     }
 
-    /* Restliche Klausuren als kompakte Listenzeile */
-    function examListItemHTML(e) {
-      const dt = parseKey(e.date);
-      const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
-      return `
-        <a class="up-item pressable" href="calendar.html?d=${e.date}">
-          <div class="up-date">
-            <div class="d">${dt.getDate()}</div>
-            <div class="m">${MONTHS_SHORT[dt.getMonth()]}</div>
-          </div>
-          <span class="up-dot bg-exam"></span>
-          <div class="up-main">
-            <div class="t">${e.title}</div>
-            <div class="s">${sub}</div>
-          </div>
-          <div class="up-when">${relativeLabel(daysUntil(e.date))}</div>
-        </a>`;
-    }
-
     function renderDeadlines() {
       const exams = allEventsSorted(data)
         .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
@@ -106,12 +87,10 @@
 
       let html = top3.map(examCardHTML).join("");
 
-      // Button + Liste nur, wenn es weitere Klausuren gibt
+      // Button + weitere Karten nur, wenn es mehr als 3 Klausuren gibt
       if (rest.length > 0) {
         if (showAllExams) {
-          html += `<div class="up-list" style="margin-top:12px;">`
-            + rest.map(examListItemHTML).join("")
-            + `</div>`;
+          html += rest.map(examCardHTML).join("");
           html += `<button class="show-more-btn pressable" id="showMoreBtn">Weniger anzeigen</button>`;
         } else {
           html += `<button class="show-more-btn pressable" id="showMoreBtn">`
