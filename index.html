@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="Studienkalender" />
   <title>Studienkalender · SoSe 2026</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <main class="app">
@@ -20,7 +20,7 @@
 
     <section>
       <div class="section-head">
-        <h2>Nächste Klausuren</h2>
+        <h2>Nächste Deadlines</h2>
         <span class="meta">Countdown</span>
       </div>
       <div class="deadline-list" id="deadlines"></div>
@@ -38,7 +38,7 @@
     </a>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
   <script>
     const data = loadEvents();
 
@@ -49,10 +49,11 @@
     /* Kalender-Button-Icon */
     document.querySelector("#toCal span").innerHTML = ICON.cal;
 
-    /* ---- Nächste Klausuren (Top-Deadlines) ---- */
-    let showAllExams = false;
+    /* ---- Nächste Deadlines (alle roten Termine: Klausuren + Abgaben) ---- */
+    let showAllDeadlines = false;
 
-    function examCardHTML(e) {
+    function deadlineCardHTML(e) {
+      const cat = CATS[e.category] || CATS.exam;
       const d = daysUntil(e.date);
       const count = d > 1
         ? `<span class="num">${d}</span><span class="unit">Tage</span>`
@@ -60,41 +61,41 @@
       const dt = parseKey(e.date);
       const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
       return `
-        <a class="deadline-card c-exam pressable" href="calendar.html?d=${e.date}">
+        <a class="deadline-card c-${cat.cls} pressable" href="calendar.html?d=${e.date}">
           <div class="deadline-count">${count}</div>
           <div class="deadline-body">
             <div class="title">${e.title}</div>
             <div class="sub">${sub}</div>
-            <span class="tag">Klausur</span>
+            <span class="tag">${cat.label}</span>
           </div>
         </a>`;
     }
 
     function renderDeadlines() {
-      const exams = allEventsSorted(data)
-        .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
+      const deadlines = allEventsSorted(data)
+        .filter((e) => DEADLINE_CATS.includes(e.category) && daysUntil(e.date) >= 0);
 
       const wrap = document.getElementById("deadlines");
-      if (exams.length === 0) {
+      if (deadlines.length === 0) {
         wrap.innerHTML =
-          '<div class="up-list"><div class="empty-hint">Keine anstehenden Klausuren 🎉</div></div>';
+          '<div class="up-list"><div class="empty-hint">Keine anstehenden Deadlines 🎉</div></div>';
         return;
       }
 
       // Immer die nächsten 3 als große Karten
-      const top3 = exams.slice(0, 3);
-      const rest = exams.slice(3);
+      const top3 = deadlines.slice(0, 3);
+      const rest = deadlines.slice(3);
 
-      let html = top3.map(examCardHTML).join("");
+      let html = top3.map(deadlineCardHTML).join("");
 
-      // Button + weitere Karten nur, wenn es mehr als 3 Klausuren gibt
+      // Button + weitere Karten nur, wenn es mehr als 3 Deadlines gibt
       if (rest.length > 0) {
-        if (showAllExams) {
-          html += rest.map(examCardHTML).join("");
+        if (showAllDeadlines) {
+          html += rest.map(deadlineCardHTML).join("");
           html += `<button class="show-more-btn pressable" id="showMoreBtn">Weniger anzeigen</button>`;
         } else {
           html += `<button class="show-more-btn pressable" id="showMoreBtn">`
-            + `Alle ${exams.length} Klausuren anzeigen</button>`;
+            + `Alle ${deadlines.length} Deadlines anzeigen</button>`;
         }
       }
 
@@ -103,7 +104,7 @@
       const btn = document.getElementById("showMoreBtn");
       if (btn) {
         btn.addEventListener("click", () => {
-          showAllExams = !showAllExams;
+          showAllDeadlines = !showAllDeadlines;
           renderDeadlines();
         });
       }

@@ -8,10 +8,14 @@ const STORAGE_KEY = "calendar_events_2026";
 /* ---- Kategorien ---- */
 const CATS = {
   exam:    { label: "Klausur",    color: "var(--red)",    cls: "exam" },
+  abgabe:  { label: "Abgabe",     color: "var(--red)",    cls: "abgabe" },
   lecture: { label: "Vorlesung",  color: "var(--blue)",   cls: "lecture" },
   block:   { label: "Block",      color: "var(--green)",  cls: "block" },
   holiday: { label: "Feiertag",   color: "var(--orange)", cls: "holiday" },
 };
+
+/* Kategorien, die als "Deadline" (rot) auf der Startseite zählen */
+const DEADLINE_CATS = ["exam", "abgabe"];
 
 /* ---- Vorbelegte Termine aus dem Gesamtplan ABB SoSe 26 ---- */
 /* (Daten gegen den Excel-Plan geprüft; Wochentage verifiziert.)   */

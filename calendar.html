@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <title>Kalender · SoSe 2026</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <main class="app">
@@ -32,7 +32,7 @@
     <div class="grid" id="grid"></div>
 
     <div class="legend">
-      <span><i class="bg-exam"></i>Klausur</span>
+      <span><i class="bg-exam"></i>Klausur / Abgabe</span>
       <span><i class="bg-lecture"></i>Vorlesung</span>
       <span><i class="bg-block"></i>Block</span>
       <span><i class="bg-holiday"></i>Feiertag</span>
@@ -54,7 +54,7 @@
     <div id="sheetBody"></div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
   <script>
     let data = loadEvents();
     const now = new Date();
