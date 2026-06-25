@@ -50,6 +50,26 @@
     document.querySelector("#toCal span").innerHTML = ICON.cal;
 
     /* ---- Nächste Klausuren (Top-Deadlines) ---- */
+    let showAllExams = false;
+
+    function examCardHTML(e) {
+      const d = daysUntil(e.date);
+      const count = d > 1
+        ? `<span class="num">${d}</span><span class="unit">Tage</span>`
+        : `<span class="soon">${relativeLabel(d)}</span>`;
+      const dt = parseKey(e.date);
+      const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
+      return `
+        <a class="deadline-card c-exam pressable" href="calendar.html?d=${e.date}">
+          <div class="deadline-count">${count}</div>
+          <div class="deadline-body">
+            <div class="title">${e.title}</div>
+            <div class="sub">${sub}</div>
+            <span class="tag">Klausur</span>
+          </div>
+        </a>`;
+    }
+
     function renderDeadlines() {
       const exams = allEventsSorted(data)
         .filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
@@ -60,23 +80,31 @@
           '<div class="up-list"><div class="empty-hint">Keine anstehenden Klausuren 🎉</div></div>';
         return;
       }
-      wrap.innerHTML = exams.map((e) => {
-        const d = daysUntil(e.date);
-        const count = d > 1
-          ? `<span class="num">${d}</span><span class="unit">Tage</span>`
-          : `<span class="soon">${relativeLabel(d)}</span>`;
-        const dt = parseKey(e.date);
-        const sub = `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`;
-        return `
-          <a class="deadline-card c-exam pressable" href="calendar.html?d=${e.date}">
-            <div class="deadline-count">${count}</div>
-            <div class="deadline-body">
-              <div class="title">${e.title}</div>
-              <div class="sub">${sub}</div>
-              <span class="tag">Klausur</span>
-            </div>
-          </a>`;
-      }).join("");
+
+      const visible = showAllExams ? exams : exams.slice(0, 3);
+      const rest = exams.slice(3);
+
+      let html = visible.map(examCardHTML).join("");
+
+      if (rest.length > 0 && !showAllExams) {
+        html += `<button class="show-more-btn pressable" id="showMoreBtn">
+          Alle ${exams.length} Klausuren anzeigen
+        </button>`;
+      } else if (showAllExams && exams.length > 3) {
+        html += `<button class="show-more-btn pressable" id="showMoreBtn">
+          Weniger anzeigen
+        </button>`;
+      }
+
+      wrap.innerHTML = html;
+
+      const btn = document.getElementById("showMoreBtn");
+      if (btn) {
+        btn.addEventListener("click", () => {
+          showAllExams = !showAllExams;
+          renderDeadlines();
+        });
+      }
     }
 
     /* ---- Nächste Termine (alle Kategorien) ---- */

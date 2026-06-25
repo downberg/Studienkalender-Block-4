@@ -279,6 +279,21 @@ a { color: inherit; text-decoration: none; }
   font-size: 15px;
 }
 
+/* Show more exams button */
+.show-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--red);
+  font-size: 15px;
+  font-weight: 600;
+}
+
 /* Primary button */
 .btn-primary {
   display: flex;
