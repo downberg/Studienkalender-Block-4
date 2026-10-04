@@ -54,7 +54,7 @@
     <div id="sheetBody"></div>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
   <script>
     let data = loadEvents();
     const now = new Date();
@@ -310,6 +310,7 @@
     document.getElementById("resetBtn").addEventListener("click", () => {
       if (confirm("Alle eigenen Änderungen verwerfen und den Original-Studienplan wiederherstellen?")) {
         localStorage.removeItem(STORAGE_KEY);
+        clearSeedPackFlags();
         data = loadEvents();
         renderCalendar();
         toast("Plan zurückgesetzt");

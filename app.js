@@ -55,6 +55,62 @@ const SEED = {
   "2026-08-07": [{ title: "Marketing Klausur", category: "exam" }],
 };
 
+/* ---- Zusätzliche Termin-Pakete (werden einmalig in vorhandene Daten eingemischt) ----
+   Jedes Paket hat einen eigenen Schlüssel; bereits vorhandene Termine (gleiches Datum
+   + gleicher Titel) werden übersprungen, eigene Änderungen bleiben erhalten.        */
+const SEED_PACKS = {
+  // FI241 Gr. a – Gesamtplan ABB WS 26/27 (Wintersemester 2026/27)
+  ws2627_v1: {
+    "2026-10-05": [{ title: "ITGP (1) – Or", category: "lecture", time: "13:00", location: "Raum 1.02" }],
+    "2026-10-06": [{ title: "ITM (1) – Hil", category: "lecture", time: "11:00", location: "Raum 1.02" }],
+    "2026-10-23": [{ title: "ITGP (2) – Or", category: "lecture", time: "14:00", location: "Online" }],
+    "2026-10-29": [{ title: "Auftakt WPF", category: "lecture", time: "17:00" }],
+    "2026-10-30": [{ title: "ITM (2) – Hil", category: "lecture", time: "14:00", location: "Online" }],
+    "2026-11-06": [{ title: "HRL (1) – Ost", category: "lecture", time: "14:00", location: "Online" }],
+    "2026-11-13": [{ title: "ITGP (3) – Or", category: "lecture", time: "14:00", location: "Raum 1.02" }],
+    "2026-11-20": [{ title: "HRL (2) – Ost", category: "lecture", time: "14:00", location: "Online" }],
+    "2026-11-27": [{ title: "WPF UN-Planspiel", category: "lecture", time: "14:00", location: "Raum 2.04" }],
+    "2026-11-28": [{ title: "WPF UN-Planspiel", category: "lecture" }],
+    "2026-12-04": [{ title: "ITGP (4) – Or", category: "lecture", time: "14:00", location: "Online" }],
+    "2026-12-11": [{ title: "HRL (3) – Ost", category: "lecture", time: "14:00", location: "Online" }],
+    "2027-01-07": [{ title: "ITGP (5) – Or", category: "lecture", time: "14:00", location: "Online" }],
+    "2027-01-08": [{ title: "ITM (3) – Hil", category: "lecture", time: "14:00", location: "Online" }],
+    "2027-01-15": [{ title: "HRL (4) – Ost", category: "lecture", time: "14:00", location: "Online" }],
+    "2027-01-22": [{ title: "WPF Datengetr. Opt.", category: "lecture", time: "14:00", location: "Raum 2.04" }],
+    "2027-01-26": [{ title: "ITM Präsi", category: "lecture" }],
+    "2027-01-27": [{ title: "ITGP Refresher – Or", category: "lecture", time: "14:00", location: "Raum 3.04 / Online" }],
+    "2027-01-30": [{ title: "Datenbank", category: "lecture" }],
+    "2027-02-01": [{ title: "HRL Klausur", category: "exam", time: "10:00" }],
+    "2027-02-05": [{ title: "ITGP Klausur", category: "exam", time: "08:00" }],
+    "2027-02-06": [{ title: "A&D Klausur", category: "exam" }],
+  },
+};
+const PACK_FLAG_PREFIX = "calendar_pack_";
+
+/* Mischt noch nicht angewendete Pakete in `data` ein. Gibt true zurück, wenn sich etwas geändert hat. */
+function applySeedPacks(data) {
+  let changed = false;
+  for (const [packKey, pack] of Object.entries(SEED_PACKS)) {
+    const flag = PACK_FLAG_PREFIX + packKey;
+    if (localStorage.getItem(flag)) continue;
+    for (const [date, list] of Object.entries(pack)) {
+      const target = data[date] || (data[date] = []);
+      for (const e of list) {
+        if (target.some((x) => x.title === e.title)) continue;
+        target.push({ id: uid(), ...e });
+        changed = true;
+      }
+    }
+    localStorage.setItem(flag, "1");
+  }
+  return changed;
+}
+
+/* Beim Zurücksetzen: Paket-Markierungen löschen, damit alle Pakete neu geladen werden */
+function clearSeedPackFlags() {
+  Object.keys(SEED_PACKS).forEach((k) => localStorage.removeItem(PACK_FLAG_PREFIX + k));
+}
+
 /* ============================ Storage ============================ */
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -67,11 +123,14 @@ function loadEvents() {
     for (const [date, list] of Object.entries(SEED)) {
       seeded[date] = list.map((e) => ({ id: uid(), ...e }));
     }
+    applySeedPacks(seeded);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
     return seeded;
   }
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (applySeedPacks(parsed)) localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    return parsed;
   } catch (e) {
     return {};
   }
