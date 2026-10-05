@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Studienkalender" />
   <title>Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <main class="app">
@@ -18,32 +18,15 @@
       <p class="sub" id="todayDate"></p>
     </header>
 
-    <div class="dash">
-      <div class="dash-main">
-        <section aria-labelledby="h-next">
-          <div class="section-head"><h2 id="h-next">Als Nächstes</h2></div>
-          <div id="nextUp"></div>
-        </section>
-
-        <section aria-labelledby="h-after" id="afterSection">
-          <div class="section-head"><h2 id="h-after">Danach</h2></div>
-          <div class="group" id="upcoming"></div>
-        </section>
-      </div>
-
-      <aside class="dash-side" aria-labelledby="h-dead">
-        <div class="section-head">
-          <h2 id="h-dead">Deadlines</h2>
-          <span class="meta">Klausuren und Abgaben</span>
-        </div>
-        <div class="group" id="deadlines"></div>
-      </aside>
-    </div>
+    <section class="dash" aria-labelledby="h-next">
+      <div class="section-head"><h2 id="h-next">Nächste Termine</h2></div>
+      <div class="group" id="upcoming"></div>
+    </section>
   </main>
 
   <nav class="tabbar" id="tabbar" aria-label="Hauptnavigation"></nav>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
   <script>
     const data = loadEvents();
     mountTabbar("home");
@@ -51,111 +34,38 @@
     document.getElementById("todayDate").textContent =
       `${DAYS_LONG[new Date().getDay()]}, ${new Date().getDate()}. ${MONTHS[new Date().getMonth()]} · ${semesterLabel()}`;
 
+    /* ---- Die nächsten 5 anstehenden Termine (alle Kategorien) ---- */
     const future = allEventsSorted(data).filter((e) => daysUntil(e.date) >= 0);
+    const wrap = document.getElementById("upcoming");
 
-    function evRowInner(e) {
-      const cat = CATS[e.category] || CATS.lecture;
-      return `
-        <span class="bar bg-${cat.cls}"></span>
-        <span class="ev-text">
-          <span class="t">${escapeHtml(e.title)}</span>
-          <span class="m">${escapeHtml(eventMeta(e))}</span>
-        </span>`;
-    }
-
-    /* ---- Als Nächstes: alle Termine des nächsten Tages mit Terminen ---- */
-    function renderNext() {
-      const wrap = document.getElementById("nextUp");
-      if (future.length === 0) {
-        wrap.innerHTML = `
-          <div class="group"><div class="empty">
-            <div class="t">Keine anstehenden Termine</div>
-            <div class="m">Trag deinen nächsten Termin ein, dann erscheint er hier.</div>
-            <a class="link-btn pressable" href="calendar.html?new=1">Termin hinzufügen</a>
-          </div></div>`;
-        return null;
-      }
-      const day = future[0].date;
-      const todays = future.filter((e) => e.date === day);
-      const d = daysUntil(day);
-      const dt = parseKey(day);
+    if (future.length === 0) {
       wrap.innerHTML = `
-        <a class="next-card pressable" href="calendar.html?d=${day}">
-          <div class="next-when">${relativeLabel(d)}</div>
-          <div class="next-date">${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}</div>
-          <div class="next-events">
-            ${todays.map((e) => `<div class="next-ev">${evRowInner(e)}</div>`).join("")}
-          </div>
-        </a>`;
-      return day;
-    }
-
-    /* ---- Danach: die folgenden Termine ---- */
-    function renderUpcoming(afterDay) {
-      const list = future.filter((e) => e.date > afterDay).slice(0, 6);
-      const section = document.getElementById("afterSection");
-      if (afterDay === null || list.length === 0) { section.hidden = true; return; }
-      const total = future.filter((e) => e.date > afterDay).length;
-      document.getElementById("upcoming").innerHTML = list.map((e) => {
+        <div class="empty">
+          <div class="t">Keine anstehenden Termine</div>
+          <div class="m">Trag deinen nächsten Termin ein, dann erscheint er hier.</div>
+          <a class="link-btn pressable" href="calendar.html?new=1">Termin hinzufügen</a>
+        </div>`;
+    } else {
+      wrap.innerHTML = future.slice(0, 5).map((e) => {
         const dt = parseKey(e.date);
+        const cat = CATS[e.category] || CATS.lecture;
+        const d = daysUntil(e.date);
         return `
           <a class="row" href="calendar.html?d=${e.date}">
-            <span class="datebox">
+            <span class="datebox ${d === 0 ? "is-today" : ""}">
               <span class="d">${dt.getDate()}</span>
               <span class="m">${MONTHS_SHORT[dt.getMonth()]}</span>
             </span>
-            ${evRowInner(e)}
-            <span class="when">${relativeLabel(daysUntil(e.date))}</span>
-          </a>`;
-      }).join("") + (total > list.length
-        ? `<a class="group-btn" href="calendar.html">Alle Termine im Kalender</a>` : "");
-    }
-
-    /* ---- Deadlines: Klausuren und Abgaben mit Countdown ---- */
-    let showAllDeadlines = false;
-    function renderDeadlines() {
-      const deadlines = future.filter((e) => DEADLINE_CATS.includes(e.category));
-      const wrap = document.getElementById("deadlines");
-      if (deadlines.length === 0) {
-        wrap.innerHTML = `
-          <div class="empty">
-            <div class="t">Keine anstehenden Deadlines</div>
-            <div class="m">Klausuren und Abgaben erscheinen hier mit Countdown.</div>
-          </div>`;
-        return;
-      }
-      const shown = showAllDeadlines ? deadlines : deadlines.slice(0, 3);
-      wrap.innerHTML = shown.map((e) => {
-        const d = daysUntil(e.date);
-        const dt = parseKey(e.date);
-        const cat = CATS[e.category] || CATS.exam;
-        const sub = [`${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`, e.time]
-          .filter(Boolean).join(" · ");
-        const count = d > 1
-          ? `<span class="num">${d}</span><span class="unit">Tage</span>`
-          : `<span class="num">${relativeLabel(d)}</span><span class="unit">${cat.label}</span>`;
-        return `
-          <a class="row" href="calendar.html?d=${e.date}">
             <span class="bar bg-${cat.cls}"></span>
             <span class="ev-text">
               <span class="t">${escapeHtml(e.title)}</span>
-              <span class="m">${escapeHtml(sub)}</span>
+              <span class="m">${escapeHtml(eventMeta(e))}</span>
             </span>
-            <span class="count ${d <= 7 ? "soon" : ""}">${count}</span>
+            <span class="when">${relativeLabel(d)}</span>
           </a>`;
-      }).join("") + (deadlines.length > 3
-        ? `<button class="group-btn" id="showMoreBtn">${showAllDeadlines
-            ? "Weniger anzeigen" : `Alle ${deadlines.length} anzeigen`}</button>` : "");
-
-      const btn = document.getElementById("showMoreBtn");
-      if (btn) btn.addEventListener("click", () => {
-        showAllDeadlines = !showAllDeadlines;
-        renderDeadlines();
-      });
+      }).join("") + (future.length > 5
+        ? `<a class="group-btn" href="calendar.html">Alle Termine im Kalender</a>` : "");
     }
-
-    renderUpcoming(renderNext());
-    renderDeadlines();
   </script>
 </body>
 </html>

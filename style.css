@@ -161,32 +161,7 @@ h1, h2, p { margin: 0; }
 }
 .section-head .meta { color: var(--text-2); font-size: 14px; }
 
-.dash section + section { margin-top: 30px; }
-
-/* ============================ ALS NÄCHSTES ============================ */
-.next-card {
-  display: block;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 18px 18px 8px;
-}
-.next-when {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-  color: var(--accent);
-}
-.next-date { color: var(--text-2); font-size: 15px; margin-top: 4px; }
-.next-events { margin-top: 14px; }
-.next-ev {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 12px 0;
-}
-.next-ev + .next-ev { border-top: 1px solid var(--line); }
+/* ============================ TERMINZEILEN ============================ */
 .bar { flex: 0 0 auto; width: 4px; align-self: stretch; min-height: 36px; border-radius: 2px; }
 .ev-text { min-width: 0; flex: 1; }
 .ev-text .t, .ev-text .m, .datebox .d, .datebox .m { display: block; }
@@ -237,12 +212,6 @@ h1, h2, p { margin: 0; }
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
-
-/* Deadline-Zeile: Countdown rechts */
-.count { flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
-.count .num { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 1; }
-.count .unit { display: block; font-size: 12px; color: var(--text-2); margin-top: 3px; }
-.count.soon .num { color: var(--accent); }
 
 .group-btn {
   display: block;
@@ -653,13 +622,13 @@ h1, h2, p { margin: 0; }
 /* ============================ DESKTOP ============================ */
 @media (min-width: 900px) {
   .app { max-width: 1000px; padding-left: 32px; padding-right: 32px; padding-top: 44px; }
-  .dash, .cal-layout {
+  .dash { max-width: 620px; }
+  .cal-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: 40px;
     align-items: start;
   }
-  .dash-side { margin-top: 0; }
   .agenda { margin-top: 0; }
   .cell { min-height: 68px; }
   .cal-head { max-width: none; }
@@ -682,9 +651,6 @@ h1, h2, p { margin: 0; }
   .grabber { display: none; }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .textarea { min-height: 60px; }
-}
-@media (max-width: 899px) {
-  .dash-side { margin-top: 30px; }
 }
 
 /* Hover nur mit echtem Zeiger */
