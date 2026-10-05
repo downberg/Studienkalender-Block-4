@@ -1,5 +1,5 @@
 /* ===========================================================
-   Studienkalender SoSe 2026 — Logik (Daten, Storage, Render)
+   Studienkalender - Logik (Daten, Storage, Render)
    Quelle der Wahrheit: localStorage["calendar_events_2026"]
    =========================================================== */
 
@@ -212,24 +212,78 @@ function allEventsSorted(data) {
 
 /* ============================ Toast ============================ */
 let _toastTimer;
-function toast(msg) {
+/* toast("Text") oder toast("Text", { label: "Rückgängig", run: () => ... }) */
+function toast(msg, action) {
   let el = document.querySelector(".toast");
   if (!el) {
     el = document.createElement("div");
     el.className = "toast";
+    el.setAttribute("role", "status");
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  if (action) {
+    const b = document.createElement("button");
+    b.textContent = action.label;
+    b.addEventListener("click", () => { el.classList.remove("show"); action.run(); });
+    el.appendChild(b);
+  }
   requestAnimationFrame(() => el.classList.add("show"));
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove("show"), 1700);
+  _toastTimer = setTimeout(() => el.classList.remove("show"), action ? 5000 : 1800);
 }
 
 /* ============================ Icons ============================ */
+/* Phosphor Icons (regular), https://phosphoricons.com - MIT-Lizenz */
+function _ph(d) {
+  return `<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+}
 const ICON = {
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  chevL: '<svg viewBox="0 0 13 22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2 3 11l8 9"/></svg>',
-  chevR: '<svg viewBox="0 0 13 22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l8 9-8 9"/></svg>',
-  back: '<svg viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2 4.5 8.5 11 15"/></svg>',
-  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>',
+  plus: _ph("M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"),
+  chevL: _ph("M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"),
+  chevR: _ph("M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"),
+  cal: _ph("M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"),
+  home: _ph("M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Zm-96,32H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,200,136Zm0,64H152V152h48v48Z"),
+  reset: _ph("M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"),
+  close: _ph("M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"),
 };
+
+/* ============================ Text-Helfer ============================ */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, "&quot;");
+}
+
+/* "14:00 · Raum 1.02" oder, wenn beides fehlt, der Kategoriename */
+function eventMeta(e) {
+  const cat = CATS[e.category] || CATS.lecture;
+  return [e.time, e.location].filter(Boolean).join(" · ") || cat.label;
+}
+
+/* Semester aus dem Datum: Apr-Sep = Sommer, Okt-Mär = Winter */
+function semesterLabel(d = new Date()) {
+  const m = d.getMonth(), y = d.getFullYear();
+  if (m >= 3 && m <= 8) return `SoSe ${y}`;
+  const start = m >= 9 ? y : y - 1;
+  return `WiSe ${start}/${String(start + 1).slice(2)}`;
+}
+
+/* ============================ Tab-Leiste ============================ */
+/* active: "home" | "cal". onAdd: Funktion (Kalender) oder nichts (Link zur Kalenderseite). */
+function mountTabbar(active, onAdd) {
+  const nav = document.getElementById("tabbar");
+  if (!nav) return;
+  const tab = (key, href, icon, label) =>
+    `<a class="tab" href="${href}" ${active === key ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`;
+  nav.innerHTML = `
+    <div class="tabs">
+      ${tab("home", "index.html", ICON.home, "Übersicht")}
+      ${tab("cal", "calendar.html", ICON.cal, "Kalender")}
+    </div>
+    ${onAdd
+      ? `<button class="fab pressable" id="fabAdd" aria-label="Neuer Termin">${ICON.plus}</button>`
+      : `<a class="fab pressable" href="calendar.html?new=1" aria-label="Neuer Termin">${ICON.plus}</a>`}`;
+  if (onAdd) nav.querySelector("#fabAdd").addEventListener("click", onAdd);
+}

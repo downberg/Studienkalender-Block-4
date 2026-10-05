@@ -3,79 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#f3f3f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-  <title>Kalender · SoSe 2026</title>
-  <link rel="stylesheet" href="style.css?v=2" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Kalender · Studienkalender</title>
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <main class="app">
-    <div class="topbar">
-      <a class="link pressable" href="index.html"><span id="backIcon"></span> Übersicht</a>
-      <button class="icon-btn pressable" id="addBtn" aria-label="Termin hinzufügen"></button>
-    </div>
-
-    <div class="cal-head">
-      <div class="cal-title" id="calTitle">—</div>
+    <header class="cal-head">
+      <h1 class="cal-title" id="calTitle" aria-live="polite"></h1>
       <div class="cal-nav">
+        <button class="today-pill pressable" id="todayBtn">Heute</button>
         <button class="nav-btn pressable" id="prevBtn" aria-label="Vorheriger Monat"></button>
         <button class="nav-btn pressable" id="nextBtn" aria-label="Nächster Monat"></button>
       </div>
+    </header>
+
+    <div class="cal-layout">
+      <div>
+        <div class="cal-pane" id="calPane">
+          <div class="weekday-row" aria-hidden="true">
+            <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span>
+            <span class="we">Sa</span><span class="we">So</span>
+          </div>
+          <div class="grid" id="grid"></div>
+        </div>
+
+        <div class="legend">
+          <span><i class="bg-exam"></i>Klausur / Abgabe</span>
+          <span><i class="bg-lecture"></i>Vorlesung</span>
+          <span><i class="bg-block"></i>Block</span>
+          <span><i class="bg-holiday"></i>Feiertag</span>
+        </div>
+      </div>
+
+      <section class="agenda" aria-labelledby="agendaTitle">
+        <div class="section-head">
+          <h2 id="agendaTitle"></h2>
+          <span class="meta" id="agendaCount"></span>
+        </div>
+        <div class="group" id="agenda"></div>
+      </section>
     </div>
 
-    <div class="weekday-row">
-      <span>M</span><span>D</span><span>M</span><span>D</span><span>F</span>
-      <span class="we">S</span><span class="we">S</span>
-    </div>
-
-    <div class="grid" id="grid"></div>
-
-    <div class="legend">
-      <span><i class="bg-exam"></i>Klausur / Abgabe</span>
-      <span><i class="bg-lecture"></i>Vorlesung</span>
-      <span><i class="bg-block"></i>Block</span>
-      <span><i class="bg-holiday"></i>Feiertag</span>
-    </div>
-
-    <div class="cal-footer">
-      <button class="today-pill pressable" id="todayBtn">Heute</button>
-    </div>
-
-    <div style="text-align:center;margin-top:22px;">
-      <button id="resetBtn" style="color:var(--text-3);font-size:13px;padding:8px;">Plan auf Originalstand zurücksetzen</button>
+    <div class="reset-wrap">
+      <button class="quiet-btn" id="resetBtn"><span id="resetIcon"></span>Plan zurücksetzen</button>
     </div>
   </main>
 
-  <!-- Bottom Sheet -->
+  <nav class="tabbar" id="tabbar" aria-label="Hauptnavigation"></nav>
+
+  <!-- Sheet (mobil von unten, am Desktop als Dialog) -->
   <div class="scrim" id="scrim"></div>
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" tabindex="-1">
     <div class="grabber"></div>
     <div id="sheetBody"></div>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
   <script>
     let data = loadEvents();
     const now = new Date();
     let view = { year: now.getFullYear(), month: now.getMonth() };
+    let selectedKey = null;
+    const DAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
     /* Icons */
-    document.getElementById("backIcon").innerHTML = ICON.back;
-    document.getElementById("addBtn").innerHTML = ICON.plus;
     document.getElementById("prevBtn").innerHTML = ICON.chevL;
     document.getElementById("nextBtn").innerHTML = ICON.chevR;
+    document.getElementById("resetIcon").innerHTML = ICON.reset;
+    mountTabbar("cal", () => openForm(selectedKey || todayKey(), null));
 
-    /* ============================ Grid ============================ */
+    /* ============================ Monatsraster ============================ */
     function renderCalendar() {
-      document.getElementById("calTitle").textContent =
-        `${MONTHS[view.month]} ${view.year}`;
+      document.getElementById("calTitle").innerHTML =
+        `${MONTHS[view.month]} <span class="y">${view.year}</span>`;
 
       const first = new Date(view.year, view.month, 1);
       const startWeekday = (first.getDay() + 6) % 7; // Montag = 0
       const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
       const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
       const tKey = todayKey();
+      /* "Heute" nur anbieten, wenn ein anderer Monat gezeigt wird */
+      document.getElementById("todayBtn").hidden =
+        view.year === now.getFullYear() && view.month === now.getMonth();
 
       let html = "";
       for (let i = 0; i < totalCells; i++) {
@@ -83,98 +97,146 @@
         const key = toKey(cellDate);
         const out = cellDate.getMonth() !== view.month;
         const weekday = cellDate.getDay();
-        const we = weekday === 0 || weekday === 6;
-        const isToday = key === tKey;
-        const isFirst = cellDate.getDate() === 1 && !out;
         const evs = getEventsForDate(data, key);
 
-        let dots = "";
-        if (evs.length) {
-          const shown = evs.slice(0, 3);
-          dots = '<div class="dots">' +
-            shown.map((e) => {
-              const c = (CATS[e.category] || CATS.lecture).cls;
-              return `<span class="dot bg-${c}"></span>`;
-            }).join("") +
-            (evs.length > 3 ? '<span class="more">+</span>' : "") +
-            "</div>";
-        } else {
-          dots = '<div class="dots"></div>';
-        }
+        const dots = evs.length
+          ? evs.slice(0, 3).map((e) =>
+              `<span class="dot bg-${(CATS[e.category] || CATS.lecture).cls}"></span>`).join("") +
+            (evs.length > 3 ? '<span class="more">+</span>' : "")
+          : "";
 
-        const classes = ["cell", "tappable"];
+        const classes = ["cell"];
         if (out) classes.push("out");
-        if (we) classes.push("we");
-        if (isToday) classes.push("today");
+        if (weekday === 0 || weekday === 6) classes.push("we");
+        if (key === tKey) classes.push("today");
+        if (evs.length) classes.push("has");
+        if (key === selectedKey) classes.push("selected");
 
-        html += `<button class="${classes.join(" ")}" data-key="${key}">
-          ${isFirst ? `<span class="month-tag">${MONTHS_SHORT[view.month]}</span>` : ""}
+        const label = formatLongDate(key) +
+          (evs.length ? `, ${evs.length} ${evs.length === 1 ? "Termin" : "Termine"}` : "");
+
+        html += `<button class="${classes.join(" ")}" data-key="${key}" aria-label="${label}">
           <span class="daynum">${cellDate.getDate()}</span>
-          ${dots}
+          <span class="dots">${dots}</span>
         </button>`;
       }
-      const grid = document.getElementById("grid");
-      grid.innerHTML = html;
-      grid.querySelectorAll(".cell").forEach((c) =>
-        c.addEventListener("click", () => openDay(c.dataset.key))
-      );
+      document.getElementById("grid").innerHTML = html;
+      renderAgenda();
     }
 
-    /* ============================ Sheet plumbing ============================ */
+    /* Ein Listener für alle Zellen */
+    document.getElementById("grid").addEventListener("click", (e) => {
+      const cell = e.target.closest(".cell");
+      if (cell) openDay(cell.dataset.key);
+    });
+
+    /* ============================ Monatsliste ============================ */
+    function renderAgenda() {
+      const prefix = `${view.year}-${pad(view.month + 1)}-`;
+      const list = allEventsSorted(data).filter((e) => e.date.startsWith(prefix));
+      const tKey = todayKey();
+
+      document.getElementById("agendaTitle").textContent = `Termine im ${MONTHS[view.month]}`;
+      document.getElementById("agendaCount").textContent = list.length ? String(list.length) : "";
+
+      const wrap = document.getElementById("agenda");
+      if (list.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty">
+            <div class="t">Keine Termine in diesem Monat</div>
+            <div class="m">Tippe auf einen Tag oder auf das Plus, um einen Termin anzulegen.</div>
+          </div>`;
+        return;
+      }
+      wrap.innerHTML = list.map((e) => {
+        const dt = parseKey(e.date);
+        const cat = CATS[e.category] || CATS.lecture;
+        return `
+          <button class="row ${e.date < tKey ? "past" : ""}" data-date="${e.date}" data-id="${e.id}">
+            <span class="datebox ${e.date === tKey ? "is-today" : ""}">
+              <span class="m">${DAYS_SHORT[dt.getDay()]}</span>
+              <span class="d">${dt.getDate()}</span>
+            </span>
+            <span class="bar bg-${cat.cls}"></span>
+            <span class="ev-text">
+              <span class="t">${escapeHtml(e.title)}</span>
+              <span class="m">${escapeHtml(eventMeta(e))}</span>
+            </span>
+          </button>`;
+      }).join("");
+    }
+    document.getElementById("agenda").addEventListener("click", (e) => {
+      const row = e.target.closest(".row");
+      if (row) openForm(row.dataset.date, row.dataset.id);
+    });
+
+    /* ============================ Sheet ============================ */
     const scrim = document.getElementById("scrim");
     const sheet = document.getElementById("sheet");
     const sheetBody = document.getElementById("sheetBody");
+    let lastFocus = null;
 
+    function sheetHead(title, sub) {
+      return `
+        <div class="sheet-head">
+          <div>
+            <h2 class="sheet-title" id="sheetTitle">${title}</h2>
+            ${sub ? `<p class="sheet-sub">${sub}</p>` : ""}
+          </div>
+          <button class="close-btn" data-close aria-label="Schließen">${ICON.close}</button>
+        </div>`;
+    }
     function openSheet(htmlContent) {
+      if (!sheet.classList.contains("open")) lastFocus = document.activeElement;
       sheetBody.innerHTML = htmlContent;
+      sheet.setAttribute("aria-labelledby", "sheetTitle");
+      sheet.scrollTop = 0;
       scrim.classList.add("open");
-      requestAnimationFrame(() => sheet.classList.add("open"));
+      sheet.classList.add("open");
+      sheet.focus({ preventScroll: true });
     }
     function closeSheet() {
       sheet.classList.remove("open");
       scrim.classList.remove("open");
+      if (selectedKey) { selectedKey = null; renderCalendar(); }
+      if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
     }
     scrim.addEventListener("click", closeSheet);
+    sheet.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) closeSheet(); });
 
     /* ---- Tagesansicht ---- */
     function openDay(key) {
+      selectedKey = key;
+      renderCalendar();
       const evs = getEventsForDate(data, key);
       const dt = parseKey(key);
-      let body = `
-        <div class="sheet-title">${dt.getDate()}. ${MONTHS[dt.getMonth()]}</div>
-        <div class="sheet-sub">${DAYS_LONG[dt.getDay()]} ${dt.getFullYear()} · ${relativeLabel(daysUntil(key))}</div>`;
+      let body = sheetHead(
+        `${dt.getDate()}. ${MONTHS[dt.getMonth()]}`,
+        `${DAYS_LONG[dt.getDay()]} · ${relativeLabel(daysUntil(key))}`);
 
       if (evs.length) {
-        body += '<div class="day-events">';
-        body += evs.map((e) => {
+        body += '<div class="day-events">' + evs.map((e) => {
           const cat = CATS[e.category] || CATS.lecture;
-          const meta = [e.time, e.location].filter(Boolean).join(" · ") || cat.label;
           return `
             <button class="ev-card pressable" data-edit="${e.id}">
               <span class="bar bg-${cat.cls}"></span>
-              <span class="info">
-                <span class="t">${e.title}</span>
-                <span class="m">${meta}</span>
+              <span class="ev-text">
+                <span class="t">${escapeHtml(e.title)}</span>
+                <span class="m">${escapeHtml(eventMeta(e))}</span>
               </span>
               <span class="chev">${ICON.chevR}</span>
             </button>`;
-        }).join("");
-        body += "</div>";
+        }).join("") + "</div>";
       } else {
-        body += '<div class="empty-hint">Keine Termine an diesem Tag.</div>';
+        body += '<div class="empty"><div class="m">Keine Termine an diesem Tag.</div></div>';
       }
 
-      body += `<button class="add-row pressable" data-new="${key}">
-        <span class="plus">${ICON.plus}</span> Neuer Termin
-      </button>`;
-
+      body += `<button class="btn btn-save pressable" data-new>Neuer Termin</button>`;
       openSheet(body);
 
       sheetBody.querySelectorAll("[data-edit]").forEach((b) =>
-        b.addEventListener("click", () => openForm(key, b.dataset.edit))
-      );
-      sheetBody.querySelector("[data-new]")
-        .addEventListener("click", () => openForm(key, null));
+        b.addEventListener("click", () => openForm(key, b.dataset.edit)));
+      sheetBody.querySelector("[data-new]").addEventListener("click", () => openForm(key, null));
     }
 
     /* ---- Formular (Erstellen / Bearbeiten) ---- */
@@ -186,23 +248,21 @@
       }
 
       const segs = Object.entries(CATS).map(([k, c]) =>
-        `<button type="button" class="seg s-${c.cls}" data-cat="${k}" aria-pressed="${ev.category === k}">
+        `<button type="button" class="seg" data-cat="${k}" aria-pressed="${ev.category === k}">
           <i class="bg-${c.cls}"></i>${c.label}
-        </button>`
-      ).join("");
+        </button>`).join("");
 
-      const body = `
-        <div class="sheet-title">${id ? "Termin bearbeiten" : "Neuer Termin"}</div>
-        <div class="sheet-sub">Alle Änderungen werden sofort gespeichert.</div>
-
+      const opt = '<span class="opt">(optional)</span>';
+      const body = sheetHead(id ? "Termin bearbeiten" : "Neuer Termin") + `
         <div class="field">
           <label for="f-title">Titel</label>
-          <input class="input" id="f-title" type="text" placeholder="z. B. Mathe Klausur" value="${escapeAttr(ev.title)}" />
+          <input class="input" id="f-title" type="text" autocomplete="off"
+            placeholder="z. B. Mathe Klausur" value="${escapeAttr(ev.title)}" />
         </div>
 
         <div class="field">
-          <label>Kategorie</label>
-          <div class="segmented" id="f-seg">${segs}</div>
+          <span class="label" id="l-cat">Kategorie</span>
+          <div class="segmented" id="f-seg" role="group" aria-labelledby="l-cat">${segs}</div>
         </div>
 
         <div class="field">
@@ -210,46 +270,50 @@
           <input id="f-date" type="date" value="${key}" />
         </div>
 
+        <div class="field-row">
         <div class="field">
-          <label for="f-time">Uhrzeit <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
-          <input class="input" id="f-time" type="text" inputmode="numeric" placeholder="z. B. 14:00 oder 09:00–15:00" value="${escapeAttr(ev.time || "")}" />
+          <label for="f-time">Uhrzeit ${opt}</label>
+          <input class="input" id="f-time" type="text" inputmode="numeric" autocomplete="off"
+            placeholder="z. B. 14:00" value="${escapeAttr(ev.time || "")}" />
         </div>
 
         <div class="field">
-          <label for="f-loc">Ort <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
-          <input class="input" id="f-loc" type="text" placeholder="z. B. Online · Raum A" value="${escapeAttr(ev.location || "")}" />
+          <label for="f-loc">Ort ${opt}</label>
+          <input class="input" id="f-loc" type="text" autocomplete="off"
+            placeholder="z. B. Raum 1.02" value="${escapeAttr(ev.location || "")}" />
+        </div>
+
         </div>
 
         <div class="field">
-          <label for="f-note">Notiz <span style="text-transform:none;color:var(--text-3)">(optional)</span></label>
-          <textarea class="textarea" id="f-note" placeholder="Themen, Hilfsmittel …">${escapeHtml(ev.note || "")}</textarea>
+          <label for="f-note">Notiz ${opt}</label>
+          <textarea class="textarea" id="f-note" placeholder="Themen, Hilfsmittel">${escapeHtml(ev.note || "")}</textarea>
         </div>
 
         <div class="form-actions">
           <button class="btn btn-save pressable" id="f-save">Speichern</button>
-          ${id ? '<button class="btn btn-delete pressable" id="f-del">Termin löschen</button>' : ""}
-          <button class="btn btn-cancel pressable" id="f-cancel">Abbrechen</button>
+          ${id ? '<button class="btn btn-delete" id="f-del">Termin löschen</button>' : ""}
         </div>`;
 
       openSheet(body);
 
       let selectedCat = ev.category;
       const segWrap = sheetBody.querySelector("#f-seg");
-      segWrap.querySelectorAll(".seg").forEach((s) =>
-        s.addEventListener("click", () => {
-          selectedCat = s.dataset.cat;
-          segWrap.querySelectorAll(".seg").forEach((x) =>
-            x.setAttribute("aria-pressed", x === s ? "true" : "false"));
-        })
-      );
+      segWrap.addEventListener("click", (e) => {
+        const s = e.target.closest(".seg");
+        if (!s) return;
+        selectedCat = s.dataset.cat;
+        segWrap.querySelectorAll(".seg").forEach((x) =>
+          x.setAttribute("aria-pressed", x === s ? "true" : "false"));
+      });
 
       const titleEl = sheetBody.querySelector("#f-title");
       const saveBtn = sheetBody.querySelector("#f-save");
-      function syncSave() { saveBtn.disabled = !titleEl.value.trim(); }
+      const syncSave = () => { saveBtn.disabled = !titleEl.value.trim(); };
       titleEl.addEventListener("input", syncSave);
       syncSave();
 
-      saveBtn.addEventListener("click", () => {
+      function save() {
         const newDate = sheetBody.querySelector("#f-date").value || key;
         const record = {
           id: id || undefined,
@@ -261,40 +325,64 @@
         };
         if (!record.title) return;
         upsertEvent(data, newDate, record);
-        view = { year: parseKey(newDate).getFullYear(), month: parseKey(newDate).getMonth() };
-        renderCalendar();
+        const nd = parseKey(newDate);
+        view = { year: nd.getFullYear(), month: nd.getMonth() };
+        selectedKey = null;
         closeSheet();
+        renderCalendar();
         toast(id ? "Gespeichert" : "Termin hinzugefügt");
-      });
+      }
+      saveBtn.addEventListener("click", save);
+      /* Enter in einem einzeiligen Feld speichert */
+      sheetBody.querySelectorAll("input").forEach((inp) =>
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); }));
 
       if (id) {
         sheetBody.querySelector("#f-del").addEventListener("click", () => {
+          const backup = { ...ev };
           deleteEvent(data, id);
-          renderCalendar();
+          selectedKey = null;
           closeSheet();
-          toast("Termin gelöscht");
+          renderCalendar();
+          toast("Termin gelöscht", {
+            label: "Rückgängig",
+            run: () => { upsertEvent(data, key, backup); renderCalendar(); },
+          });
         });
       }
-      sheetBody.querySelector("#f-cancel").addEventListener("click", () => {
-        if (id) { openDay(key); } else { closeSheet(); }
+
+      if (!id && matchMedia("(pointer: fine)").matches) titleEl.focus({ preventScroll: true });
+    }
+
+    /* ---- Zurücksetzen mit Rückfrage im Sheet ---- */
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      openSheet(sheetHead("Plan zurücksetzen?",
+        "Alle eigenen Termine und Änderungen gehen verloren. Der ursprüngliche Studienplan wird wiederhergestellt.") + `
+        <div class="form-actions">
+          <button class="btn btn-save pressable" id="r-yes">Zurücksetzen</button>
+          <button class="btn btn-cancel pressable" data-close>Abbrechen</button>
+        </div>`);
+      sheetBody.querySelector("#r-yes").addEventListener("click", () => {
+        localStorage.removeItem(STORAGE_KEY);
+        clearSeedPackFlags();
+        data = loadEvents();
+        closeSheet();
+        renderCalendar();
+        toast("Plan zurückgesetzt");
       });
-
-      if (!id) setTimeout(() => titleEl.focus(), 350);
-    }
-
-    /* ---- kleine Escape-Helfer ---- */
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-    }
-    function escapeAttr(s) {
-      return escapeHtml(s).replace(/"/g, "&quot;");
-    }
+    });
 
     /* ============================ Steuerung ============================ */
     function shiftMonth(delta) {
       const d = new Date(view.year, view.month + delta, 1);
       view = { year: d.getFullYear(), month: d.getMonth() };
       renderCalendar();
+      /* Kurzes Einblenden in Blätterrichtung zeigt, wohin gewechselt wurde */
+      if (!reduceMotion.matches) {
+        document.getElementById("grid").animate(
+          [{ opacity: 0, transform: `translateX(${delta * 14}px)` }, { opacity: 1, transform: "none" }],
+          { duration: 220, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
+      }
     }
     document.getElementById("prevBtn").addEventListener("click", () => shiftMonth(-1));
     document.getElementById("nextBtn").addEventListener("click", () => shiftMonth(1));
@@ -302,36 +390,44 @@
       const n = new Date();
       view = { year: n.getFullYear(), month: n.getMonth() };
       renderCalendar();
-      openDay(todayKey());
-    });
-    document.getElementById("addBtn").addEventListener("click", () =>
-      openForm(todayKey(), null)
-    );
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (confirm("Alle eigenen Änderungen verwerfen und den Original-Studienplan wiederherstellen?")) {
-        localStorage.removeItem(STORAGE_KEY);
-        clearSeedPackFlags();
-        data = loadEvents();
-        renderCalendar();
-        toast("Plan zurückgesetzt");
-      }
     });
 
-    /* Esc schließt das Sheet */
+    /* Wischen über dem Monatsraster blättert */
+    (() => {
+      const pane = document.getElementById("calPane");
+      let x0 = null, y0 = 0;
+      pane.addEventListener("touchstart", (e) => {
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+      }, { passive: true });
+      pane.addEventListener("touchend", (e) => {
+        if (x0 === null) return;
+        const dx = e.changedTouches[0].clientX - x0;
+        const dy = e.changedTouches[0].clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) shiftMonth(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    })();
+
+    /* Tastatur: Esc schließt, Pfeile blättern (nur ohne offenes Sheet) */
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeSheet();
+      const open = sheet.classList.contains("open");
+      if (e.key === "Escape" && open) { closeSheet(); return; }
+      if (open || e.target.closest("input, textarea")) return;
+      if (e.key === "ArrowLeft") shiftMonth(-1);
+      if (e.key === "ArrowRight") shiftMonth(1);
     });
 
-    /* Deep-Link von der Übersicht: ?d=YYYY-MM-DD */
+    /* Deep-Links: ?d=YYYY-MM-DD öffnet den Tag, ?new=1 das Formular */
     const params = new URLSearchParams(location.search);
     const deep = params.get("d");
-    if (deep && /^\d{4}-\d{2}-\d{2}$/.test(deep)) {
+    const validDeep = deep && /^\d{4}-\d{2}-\d{2}$/.test(deep);
+    if (validDeep) {
       const dt = parseKey(deep);
       view = { year: dt.getFullYear(), month: dt.getMonth() };
     }
-
     renderCalendar();
-    if (deep && /^\d{4}-\d{2}-\d{2}$/.test(deep)) openDay(deep);
+    if (validDeep) openDay(deep);
+    else if (params.get("new")) openForm(todayKey(), null);
   </script>
 </body>
 </html>
