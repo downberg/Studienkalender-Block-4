@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Training · Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
   <main class="app page">
@@ -73,14 +73,23 @@
 
     const BASE = "2026-10-07";            // erster Trainingstag (Einheit A)
     const SHIFT_KEY = "training_shift";   // "1" = Rhythmus um einen Tag verschoben
-    const DONE_KEY = "training_done";     // Liste erledigter Tage (YYYY-MM-DD)
+    const DONE_KEY = "training_done";     // alt: Liste komplett erledigter Tage
+    const CHECK_KEY = "training_checks";  // { "YYYY-MM-DD": [Index abgehakter Übungen] }
     const DAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
     function store(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
     }
     let shift = store(SHIFT_KEY, 0) ? 1 : 0;
-    let done = new Set(store(DONE_KEY, []));
+    let checks = store(CHECK_KEY, {});
+    /* Einträge älter als 60 Tage entfernen, damit der Speicher klein bleibt */
+    for (const k of Object.keys(checks)) if (daysUntil(k) < -60) delete checks[k];
+    /* Übernahme aus der alten Ganz-oder-gar-nicht-Markierung */
+    for (const k of store(DONE_KEY, [])) {
+      if (!checks[k] && daysUntil(k) >= -60) checks[k] = "all";
+    }
+    localStorage.removeItem(DONE_KEY);
+    const saveChecks = () => localStorage.setItem(CHECK_KEY, JSON.stringify(checks));
 
     /* Welche Einheit an einem Tag ansteht, oder null für Ruhetag */
     function workoutOn(key) {
@@ -96,32 +105,50 @@
     const exHTML = (w) => w.exercises.map((x) =>
       `<div class="ex"><span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
 
-    /* ---- Heute ---- */
+    /* ---- Heute: jede Übung einzeln abhaken ---- */
     function renderToday() {
       const tKey = todayKey();
       const w = workoutOn(tKey);
       const el = document.getElementById("today");
-      if (w) {
-        const isDone = done.has(tKey);
-        el.innerHTML = `
-          <div class="today-kind is-gym">Trainingstag</div>
-          <div class="today-sub">${w.name}</div>
-          <div class="ex-list">${exHTML(w)}</div>
-          <button class="btn ${isDone ? "btn-cancel" : "btn-save"} pressable" id="doneBtn" aria-pressed="${isDone}">
-            ${isDone ? `${ICON.check}Erledigt` : "Als erledigt markieren"}
-          </button>`;
-        el.querySelector("#doneBtn").addEventListener("click", () => {
-          if (done.has(tKey)) done.delete(tKey); else done.add(tKey);
-          localStorage.setItem(DONE_KEY, JSON.stringify([...done]));
-          renderToday();
-          if (done.has(tKey)) toast("Training erledigt");
-        });
-      } else {
+      if (!w) {
         const next = workoutOn(keyPlus(1));
         el.innerHTML = `
           <div class="today-kind">Ruhetag</div>
           <div class="today-sub">Nächstes Training morgen: ${next.name}</div>`;
+        return;
       }
+      const total = w.exercises.length;
+      if (checks[tKey] === "all") checks[tKey] = w.exercises.map((_, i) => i);
+      const set = new Set((checks[tKey] || []).filter((i) => i < total));
+      const allDone = set.size === total;
+
+      el.innerHTML = `
+        <div class="today-kind is-gym">Trainingstag</div>
+        <div class="today-sub">${w.name} · <span id="progress">${set.size} von ${total} erledigt</span></div>
+        <div class="ex-list">
+          ${w.exercises.map((x, i) => `
+            <button class="ex check" role="checkbox" aria-checked="${set.has(i)}" data-i="${i}">
+              <span class="box" aria-hidden="true">${ICON.check}</span>
+              <span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span>
+              <span class="s">${escapeHtml(x.sets)}</span>
+            </button>`).join("")}
+        </div>
+        <button class="btn btn-cancel pressable" id="allBtn">${allDone ? "Alle zurücksetzen" : "Alle abhaken"}</button>`;
+
+      el.querySelectorAll(".check").forEach((b) => b.addEventListener("click", () => {
+        const i = Number(b.dataset.i);
+        if (set.has(i)) set.delete(i); else set.add(i);
+        checks[tKey] = [...set].sort((a, c) => a - c);
+        saveChecks();
+        renderToday();
+        if (set.size === total) toast("Training erledigt");
+      }));
+      el.querySelector("#allBtn").addEventListener("click", () => {
+        checks[tKey] = allDone ? [] : w.exercises.map((_, i) => i);
+        saveChecks();
+        renderToday();
+        if (!allDone) toast("Training erledigt");
+      });
     }
 
     /* ---- Nächste 14 Tage ---- */

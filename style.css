@@ -114,6 +114,18 @@ h1, h2, p { margin: 0; }
   outline-offset: 2px;
 }
 
+/* Deckt den Bereich unter Uhr und Notch ab, damit beim Scrollen nichts durchscheint */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background: var(--bg);
+  z-index: 30;
+}
+
 .app {
   max-width: 480px;
   margin: 0 auto;
@@ -461,7 +473,35 @@ h1, h2, p { margin: 0; }
 .today-kind.is-gym { color: var(--accent); }
 .today-sub { color: var(--text-2); font-size: 15px; margin-top: 4px; }
 .today-card .ex-list { margin: 14px 0 16px; border-top: 1px solid var(--line); }
-.today-card .btn svg, .today-done svg { width: 19px; height: 19px; vertical-align: -4px; margin-right: 6px; }
+
+/* Abhakbare Übung */
+.ex.check {
+  width: 100%;
+  min-height: 60px;
+  text-align: left;
+  justify-content: flex-start;
+  transition: background-color 140ms ease;
+}
+.ex.check .n { flex: 1; }
+.ex.check .box {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--text-3);
+  color: transparent;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.ex.check .box svg { width: 16px; height: 16px; }
+.ex.check[aria-checked="true"] .box {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.ex.check[aria-checked="true"] .n, .ex.check[aria-checked="true"] .mu, .ex.check[aria-checked="true"] .s { color: var(--text-3); }
+.ex.check:active { background: var(--surface-2); }
 
 .ex {
   display: flex;
