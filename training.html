@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Training · Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
   <main class="app page">
@@ -48,24 +48,26 @@
   <script>
     /* ===========================================================
        Trainingsplan: alle zwei Tage Gym, Einheiten A und B im Wechsel.
-       Übungen hier anpassen: name = Übung, sets = Sätze x Wiederholungen.
+       Übungen hier anpassen: name = Übung, muscle = Muskelgruppe, sets = Sätze x Wiederholungen.
        =========================================================== */
     const WORKOUTS = [
-      { key: "A", name: "Ganzkörper A", exercises: [
-        { name: "Kniebeuge", sets: "3 × 8-10" },
-        { name: "Bankdrücken", sets: "3 × 8-10" },
-        { name: "Rudern am Kabel", sets: "3 × 10-12" },
-        { name: "Schulterdrücken", sets: "3 × 10-12" },
-        { name: "Beinbeuger", sets: "3 × 10-12" },
-        { name: "Plank", sets: "3 × 45 s" },
+      { key: "A", name: "Einheit A", exercises: [
+        { name: "Bankdrücken", muscle: "Brust", sets: "3 × 8-10" },
+        { name: "Latzug", muscle: "Rücken", sets: "3 × 10-12" },
+        { name: "Schulterdrücken", muscle: "Schultern", sets: "3 × 10-12" },
+        { name: "Rudern am Kabel", muscle: "Rücken", sets: "3 × 10-12" },
+        { name: "Bizeps-Curls", muscle: "Bizeps", sets: "3 × 10-12" },
+        { name: "Trizepsdrücken", muscle: "Trizeps", sets: "3 × 10-12" },
+        { name: "Beinpresse", muscle: "Beine", sets: "3 × 10-12" },
       ] },
-      { key: "B", name: "Ganzkörper B", exercises: [
-        { name: "Rumänisches Kreuzheben", sets: "3 × 8-10" },
-        { name: "Latzug", sets: "3 × 10-12" },
-        { name: "Schrägbankdrücken", sets: "3 × 10-12" },
-        { name: "Beinpresse", sets: "3 × 10-12" },
-        { name: "Seitheben", sets: "3 × 12-15" },
-        { name: "Beinheben", sets: "3 × 12-15" },
+      { key: "B", name: "Einheit B", exercises: [
+        { name: "Schrägbankdrücken", muscle: "Brust", sets: "3 × 8-10" },
+        { name: "Latzug eng", muscle: "Rücken", sets: "3 × 10-12" },
+        { name: "Seitheben", muscle: "Schultern", sets: "3 × 12-15" },
+        { name: "Rudern an der Maschine", muscle: "Rücken", sets: "3 × 10-12" },
+        { name: "Hammer-Curls", muscle: "Bizeps", sets: "3 × 10-12" },
+        { name: "Trizeps über Kopf", muscle: "Trizeps", sets: "3 × 10-12" },
+        { name: "Kniebeuge", muscle: "Beine", sets: "3 × 8-10" },
       ] },
     ];
 
@@ -92,7 +94,7 @@
       return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
     }
     const exHTML = (w) => w.exercises.map((x) =>
-      `<div class="ex"><span class="n">${escapeHtml(x.name)}</span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
+      `<div class="ex"><span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
 
     /* ---- Heute ---- */
     function renderToday() {

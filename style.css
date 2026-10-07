@@ -465,7 +465,7 @@ h1, h2, p { margin: 0; }
 
 .ex {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
   padding: 12px 0;
@@ -473,6 +473,7 @@ h1, h2, p { margin: 0; }
 .ex + .ex { border-top: 1px solid var(--line); }
 .group .ex { padding: 13px 16px; }
 .ex .n { font-size: 16px; font-weight: 500; min-width: 0; }
+.ex .mu { display: block; font-size: 13px; font-weight: 400; color: var(--text-2); margin-top: 1px; }
 .ex .s {
   flex: 0 0 auto;
   font-size: 15px;
