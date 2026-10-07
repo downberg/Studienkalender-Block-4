@@ -273,14 +273,17 @@ h1, h2, p { margin: 0; }
 }
 .tab {
   flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 2px;
   border-radius: 999px;
   color: var(--text-2);
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
   transition: background-color 160ms ease, color 160ms ease;
 }
 .tab svg { width: 21px; height: 21px; }
@@ -439,6 +442,75 @@ h1, h2, p { margin: 0; }
 }
 .quiet-btn svg { width: 17px; height: 17px; }
 .quiet-btn:active { background: var(--surface-2); }
+
+/* ============================ TRAINING ============================ */
+.page section + section, .train-layout > * + * { margin-top: 30px; }
+
+.today-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+.today-kind {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.today-kind.is-gym { color: var(--accent); }
+.today-sub { color: var(--text-2); font-size: 15px; margin-top: 4px; }
+.today-card .ex-list { margin: 14px 0 16px; border-top: 1px solid var(--line); }
+.today-card .btn svg, .today-done svg { width: 19px; height: 19px; vertical-align: -4px; margin-right: 6px; }
+
+.ex {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+}
+.ex + .ex { border-top: 1px solid var(--line); }
+.group .ex { padding: 13px 16px; }
+.ex .n { font-size: 16px; font-weight: 500; min-width: 0; }
+.ex .s {
+  flex: 0 0 auto;
+  font-size: 15px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 14-Tage-Raster: 7 Spalten, zwei Zeilen */
+.strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 12px 6px;
+}
+.strip .day { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.strip .wd { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.strip .mark {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.strip .gym .mark { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.strip .today .mark { outline: 2px solid var(--text); outline-offset: 1px; }
+.strip .today.gym .mark { background: var(--accent-fill); color: var(--on-accent); }
+.strip .tag { font-size: 11px; font-weight: 700; color: var(--text-2); height: 14px; }
+.strip-note { color: var(--text-2); font-size: 13px; margin: 10px 4px 0; }
+
+.plan-grid { display: grid; gap: 16px; }
+.plan-name { font-size: 15px; font-weight: 700; margin: 0 2px 8px; }
 
 /* ============================ SHEET ============================ */
 .scrim {
@@ -623,6 +695,13 @@ h1, h2, p { margin: 0; }
 @media (min-width: 900px) {
   .app { max-width: 1000px; padding-left: 32px; padding-right: 32px; padding-top: 44px; }
   .dash { max-width: 620px; }
+  .train-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+  .train-layout > * + * { margin-top: 0; }
   .cal-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3f3f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Training · Studienkalender</title>
+  <link rel="stylesheet" href="style.css?v=6" />
+</head>
+<body>
+  <main class="app page">
+    <header class="page-head">
+      <h1>Training</h1>
+      <p class="sub">Alle zwei Tage Gym, dazwischen ein Ruhetag</p>
+    </header>
+
+    <div class="train-layout">
+      <div>
+        <section aria-labelledby="h-today">
+          <div class="section-head"><h2 id="h-today">Heute</h2></div>
+          <div class="today-card" id="today"></div>
+        </section>
+
+        <section aria-labelledby="h-days">
+          <div class="section-head"><h2 id="h-days">Nächste 14 Tage</h2></div>
+          <div class="strip" id="strip"></div>
+          <p class="strip-note">Markierte Tage sind Trainingstage. A und B wechseln sich ab.</p>
+        </section>
+      </div>
+
+      <section aria-labelledby="h-plan">
+        <div class="section-head"><h2 id="h-plan">Dein Plan</h2></div>
+        <div class="plan-grid" id="plan"></div>
+      </section>
+    </div>
+
+    <div class="reset-wrap">
+      <button class="quiet-btn" id="shiftBtn"><span id="shiftIcon"></span>Rhythmus um einen Tag verschieben</button>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Hauptnavigation"></nav>
+
+  <script src="app.js?v=6"></script>
+  <script>
+    /* ===========================================================
+       Trainingsplan: alle zwei Tage Gym, Einheiten A und B im Wechsel.
+       Übungen hier anpassen: name = Übung, sets = Sätze x Wiederholungen.
+       =========================================================== */
+    const WORKOUTS = [
+      { key: "A", name: "Ganzkörper A", exercises: [
+        { name: "Kniebeuge", sets: "3 × 8-10" },
+        { name: "Bankdrücken", sets: "3 × 8-10" },
+        { name: "Rudern am Kabel", sets: "3 × 10-12" },
+        { name: "Schulterdrücken", sets: "3 × 10-12" },
+        { name: "Beinbeuger", sets: "3 × 10-12" },
+        { name: "Plank", sets: "3 × 45 s" },
+      ] },
+      { key: "B", name: "Ganzkörper B", exercises: [
+        { name: "Rumänisches Kreuzheben", sets: "3 × 8-10" },
+        { name: "Latzug", sets: "3 × 10-12" },
+        { name: "Schrägbankdrücken", sets: "3 × 10-12" },
+        { name: "Beinpresse", sets: "3 × 10-12" },
+        { name: "Seitheben", sets: "3 × 12-15" },
+        { name: "Beinheben", sets: "3 × 12-15" },
+      ] },
+    ];
+
+    const BASE = "2026-10-07";            // erster Trainingstag (Einheit A)
+    const SHIFT_KEY = "training_shift";   // "1" = Rhythmus um einen Tag verschoben
+    const DONE_KEY = "training_done";     // Liste erledigter Tage (YYYY-MM-DD)
+    const DAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+    function store(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
+    }
+    let shift = store(SHIFT_KEY, 0) ? 1 : 0;
+    let done = new Set(store(DONE_KEY, []));
+
+    /* Welche Einheit an einem Tag ansteht, oder null für Ruhetag */
+    function workoutOn(key) {
+      const n = Math.round((parseKey(key) - parseKey(BASE)) / 86400000) - shift;
+      if (((n % 2) + 2) % 2 !== 0) return null;
+      const idx = (((n / 2) % WORKOUTS.length) + WORKOUTS.length) % WORKOUTS.length;
+      return WORKOUTS[idx];
+    }
+    function keyPlus(days) {
+      const d = new Date();
+      return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+    }
+    const exHTML = (w) => w.exercises.map((x) =>
+      `<div class="ex"><span class="n">${escapeHtml(x.name)}</span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
+
+    /* ---- Heute ---- */
+    function renderToday() {
+      const tKey = todayKey();
+      const w = workoutOn(tKey);
+      const el = document.getElementById("today");
+      if (w) {
+        const isDone = done.has(tKey);
+        el.innerHTML = `
+          <div class="today-kind is-gym">Trainingstag</div>
+          <div class="today-sub">${w.name}</div>
+          <div class="ex-list">${exHTML(w)}</div>
+          <button class="btn ${isDone ? "btn-cancel" : "btn-save"} pressable" id="doneBtn" aria-pressed="${isDone}">
+            ${isDone ? `${ICON.check}Erledigt` : "Als erledigt markieren"}
+          </button>`;
+        el.querySelector("#doneBtn").addEventListener("click", () => {
+          if (done.has(tKey)) done.delete(tKey); else done.add(tKey);
+          localStorage.setItem(DONE_KEY, JSON.stringify([...done]));
+          renderToday();
+          if (done.has(tKey)) toast("Training erledigt");
+        });
+      } else {
+        const next = workoutOn(keyPlus(1));
+        el.innerHTML = `
+          <div class="today-kind">Ruhetag</div>
+          <div class="today-sub">Nächstes Training morgen: ${next.name}</div>`;
+      }
+    }
+
+    /* ---- Nächste 14 Tage ---- */
+    function renderStrip() {
+      let html = "";
+      for (let i = 0; i < 14; i++) {
+        const key = keyPlus(i);
+        const dt = parseKey(key);
+        const w = workoutOn(key);
+        const label = `${formatLongDate(key)}: ${w ? w.name : "Ruhetag"}`;
+        html += `
+          <div class="day ${w ? "gym" : ""} ${i === 0 ? "today" : ""}" aria-label="${label}">
+            <span class="wd" aria-hidden="true">${DAYS_SHORT[dt.getDay()]}</span>
+            <span class="mark" aria-hidden="true">${dt.getDate()}</span>
+            <span class="tag" aria-hidden="true">${w ? w.key : ""}</span>
+          </div>`;
+      }
+      document.getElementById("strip").innerHTML = html;
+    }
+
+    /* ---- Plan ---- */
+    document.getElementById("plan").innerHTML = WORKOUTS.map((w) => `
+      <div>
+        <h3 class="plan-name">${w.name}</h3>
+        <div class="group">${exHTML(w)}</div>
+      </div>`).join("");
+
+    /* ---- Rhythmus verschieben (nochmal tippen stellt zurück) ---- */
+    document.getElementById("shiftIcon").innerHTML = ICON.shift;
+    document.getElementById("shiftBtn").addEventListener("click", () => {
+      shift = shift ? 0 : 1;
+      localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
+      renderToday();
+      renderStrip();
+      toast(workoutOn(todayKey()) ? "Heute ist jetzt Trainingstag" : "Heute ist jetzt Ruhetag");
+    });
+
+    mountTabbar("gym");
+    renderToday();
+    renderStrip();
+  </script>
+</body>
+</html>
