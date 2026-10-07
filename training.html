@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Training · Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
   <main class="app page">
@@ -27,7 +27,7 @@
         <section aria-labelledby="h-days">
           <div class="section-head"><h2 id="h-days">Nächste 14 Tage</h2></div>
           <div class="strip" id="strip"></div>
-          <p class="strip-note">Markierte Tage sind Trainingstage. A und B wechseln sich ab.</p>
+          <p class="strip-note">Markierte Tage sind Trainingstage. A und B wechseln sich ab. Nicht abgehakte Übungen kommen beim nächsten Training dazu.</p>
         </section>
       </div>
 
@@ -89,7 +89,17 @@
       if (!checks[k] && daysUntil(k) >= -60) checks[k] = "all";
     }
     localStorage.removeItem(DONE_KEY);
+    /* Einheitliches Format: pro Tag die Namen der abgehakten Übungen */
+    for (const [k, v] of Object.entries(checks)) {
+      const w = workoutOn(k);
+      if (v === "all") checks[k] = w ? w.exercises.map((x) => x.name) : [];
+      else if (Array.isArray(v)) {
+        checks[k] = v.map((i) => (typeof i === "number" ? (w && w.exercises[i] ? w.exercises[i].name : null) : i))
+          .filter(Boolean);
+      } else delete checks[k];
+    }
     const saveChecks = () => localStorage.setItem(CHECK_KEY, JSON.stringify(checks));
+    saveChecks();
 
     /* Welche Einheit an einem Tag ansteht, oder null für Ruhetag */
     function workoutOn(key) {
@@ -102,49 +112,77 @@
       const d = new Date();
       return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
     }
+    function keyOffset(key, days) {
+      const d = parseKey(key);
+      return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+    }
+
+    /* Nachholen: Übungen, die am vorherigen Trainingstag (zwei Tage davor) offen blieben.
+       Gilt erst, wenn dieser Tag vorbei ist (ab 0:00 Uhr des Folgetags).
+       Übungen, die an diesem Tag ohnehin im Plan stehen, kommen nicht doppelt. */
+    function carriedInto(key) {
+      const from = keyOffset(key, -2);
+      const prev = workoutOn(from);
+      const cur = workoutOn(key);
+      if (!prev || !cur || from < BASE || from >= todayKey()) return { from, items: [] };
+      const doneNames = new Set(checks[from] || []);
+      const own = new Set(cur.exercises.map((x) => x.name));
+      return { from, items: prev.exercises.filter((x) => !doneNames.has(x.name) && !own.has(x.name)) };
+    }
+
     const exHTML = (w) => w.exercises.map((x) =>
       `<div class="ex"><span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
 
-    /* ---- Heute: jede Übung einzeln abhaken ---- */
+    /* ---- Heute: jede Übung einzeln abhaken, offene vom letzten Mal nachholen ---- */
     function renderToday() {
       const tKey = todayKey();
       const w = workoutOn(tKey);
       const el = document.getElementById("today");
       if (!w) {
-        const next = workoutOn(keyPlus(1));
+        const nextKey = keyPlus(1);
+        const next = workoutOn(nextKey);
+        const n = carriedInto(nextKey).items.length;
         el.innerHTML = `
           <div class="today-kind">Ruhetag</div>
-          <div class="today-sub">Nächstes Training morgen: ${next.name}</div>`;
+          <div class="today-sub">Nächstes Training morgen: ${next.name}${
+            n ? `, dazu ${n} ${n === 1 ? "Übung" : "Übungen"} zum Nachholen` : ""}</div>`;
         return;
       }
-      const total = w.exercises.length;
-      if (checks[tKey] === "all") checks[tKey] = w.exercises.map((_, i) => i);
-      const set = new Set((checks[tKey] || []).filter((i) => i < total));
-      const allDone = set.size === total;
+      const carried = carriedInto(tKey);
+      const all = [...w.exercises, ...carried.items];
+      const names = new Set(all.map((x) => x.name));
+      const set = new Set((checks[tKey] || []).filter((n) => names.has(n)));
+      const allDone = set.size === all.length;
+
+      const row = (x) => `
+        <button class="ex check" role="checkbox" aria-checked="${set.has(x.name)}" data-name="${escapeAttr(x.name)}">
+          <span class="box" aria-hidden="true">${ICON.check}</span>
+          <span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span>
+          <span class="s">${escapeHtml(x.sets)}</span>
+        </button>`;
+      const fromDt = parseKey(carried.from);
 
       el.innerHTML = `
         <div class="today-kind is-gym">Trainingstag</div>
-        <div class="today-sub">${w.name} · <span id="progress">${set.size} von ${total} erledigt</span></div>
+        <div class="today-sub">${w.name} · <span id="progress">${set.size} von ${all.length} erledigt</span></div>
         <div class="ex-list">
-          ${w.exercises.map((x, i) => `
-            <button class="ex check" role="checkbox" aria-checked="${set.has(i)}" data-i="${i}">
-              <span class="box" aria-hidden="true">${ICON.check}</span>
-              <span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span>
-              <span class="s">${escapeHtml(x.sets)}</span>
-            </button>`).join("")}
+          ${w.exercises.map(row).join("")}
+          ${carried.items.length ? `
+            <div class="ex-sub">Nachholen vom ${DAYS_LONG[fromDt.getDay()]}, ${fromDt.getDate()}. ${MONTHS[fromDt.getMonth()]}</div>
+            ${carried.items.map(row).join("")}` : ""}
         </div>
         <button class="btn btn-cancel pressable" id="allBtn">${allDone ? "Alle zurücksetzen" : "Alle abhaken"}</button>`;
 
       el.querySelectorAll(".check").forEach((b) => b.addEventListener("click", () => {
-        const i = Number(b.dataset.i);
-        if (set.has(i)) set.delete(i); else set.add(i);
-        checks[tKey] = [...set].sort((a, c) => a - c);
+        const name = b.dataset.name;
+        if (set.has(name)) set.delete(name); else set.add(name);
+        checks[tKey] = [...set];
         saveChecks();
         renderToday();
-        if (set.size === total) toast("Training erledigt");
+        if (set.size === all.length) toast("Training erledigt");
       }));
       el.querySelector("#allBtn").addEventListener("click", () => {
-        checks[tKey] = allDone ? [] : w.exercises.map((_, i) => i);
+        checks[tKey] = allDone ? [] : all.map((x) => x.name);
         saveChecks();
         renderToday();
         if (!allDone) toast("Training erledigt");
@@ -189,6 +227,10 @@
     mountTabbar("gym");
     renderToday();
     renderStrip();
+    /* Nach Mitternacht oder beim Zurückkehren in die App neu berechnen */
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) { renderToday(); renderStrip(); }
+    });
   </script>
 </body>
 </html>

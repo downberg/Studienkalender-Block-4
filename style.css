@@ -474,6 +474,15 @@ body::before {
 .today-sub { color: var(--text-2); font-size: 15px; margin-top: 4px; }
 .today-card .ex-list { margin: 14px 0 16px; border-top: 1px solid var(--line); }
 
+.ex-sub {
+  padding: 16px 0 8px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.ex-sub + .ex { border-top: none; }
+
 /* Abhakbare Übung */
 .ex.check {
   width: 100%;
