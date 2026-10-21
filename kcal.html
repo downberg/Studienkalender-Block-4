@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3f3f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Kalorien · Studienkalender</title>
+  <link rel="stylesheet" href="style.css?v=10" />
+</head>
+<body>
+  <main class="app page">
+    <header class="cal-head">
+      <h1 class="cal-title">Kalorien</h1>
+      <div class="cal-nav">
+        <button class="today-pill pressable" id="todayBtn">Heute</button>
+        <button class="nav-btn pressable" id="prevBtn" aria-label="Vorheriger Tag"></button>
+        <button class="nav-btn pressable" id="nextBtn" aria-label="Nächster Tag"></button>
+      </div>
+    </header>
+
+    <div class="train-layout">
+      <div>
+        <section aria-labelledby="h-day">
+          <div class="today-card">
+            <div class="kcal-day" id="h-day" aria-live="polite"></div>
+            <div class="kcal-total"><span id="total">0</span><span class="u">kcal</span></div>
+            <div class="kcal-meter" aria-hidden="true"><span id="meter"></span></div>
+            <div class="kcal-goal" id="goalLine"></div>
+
+            <form class="kcal-form" id="addForm" autocomplete="off">
+              <input class="input" id="f-name" type="text" placeholder="Was? (optional)" aria-label="Was gegessen" />
+              <input class="input kcal-in" id="f-kcal" type="text" inputmode="decimal" placeholder="kcal" aria-label="Kalorien" />
+              <button class="btn btn-save pressable kcal-add" id="f-add" type="submit" aria-label="Hinzufügen" disabled></button>
+            </form>
+            <p class="kcal-hint">Mehrere Werte auf einmal: z. B. <b>250+120+80</b></p>
+
+            <div class="chips" id="recent"></div>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-entries">
+          <div class="section-head">
+            <h2 id="h-entries">Einträge</h2>
+            <span class="meta" id="entryCount"></span>
+          </div>
+          <div class="group" id="entries"></div>
+        </section>
+      </div>
+
+      <section aria-labelledby="h-week">
+        <div class="section-head">
+          <h2 id="h-week">Letzte 7 Tage</h2>
+          <span class="meta" id="weekAvg"></span>
+        </div>
+        <div class="group" id="week"></div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Hauptnavigation"></nav>
+
+  <script src="app.js?v=7"></script>
+  <script>
+    /* ===========================================================
+       Kalorien-Tracker: pro Tag beliebig viele Einträge, Summe wird addiert.
+       Speicher: localStorage["calories"] = { "YYYY-MM-DD": [{ id, name, kcal, time }] }
+       =========================================================== */
+    const GOAL_KEY = "calorie_goal";
+    let cal = loadCalories();
+    let goal = Number(localStorage.getItem(GOAL_KEY)) || 2500;
+    let editingGoal = false;
+
+    const params = new URLSearchParams(location.search);
+    const deep = params.get("d");
+    let dayKey = deep && /^\d{4}-\d{2}-\d{2}$/.test(deep) ? deep : todayKey();
+
+    const fmt = (n) => Math.round(n).toLocaleString("de-DE");
+    const shiftKey = (key, days) => {
+      const d = parseKey(key);
+      return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+    };
+
+    /* "250+120,5+80" -> 451 ; ungültig -> null */
+    function parseKcal(str) {
+      const parts = str.replace(/\s/g, "").replace(/,/g, ".").split("+").filter((p) => p !== "");
+      if (!parts.length) return null;
+      let sum = 0;
+      for (const p of parts) {
+        const n = Number(p);
+        if (!isFinite(n) || n < 0) return null;
+        sum += n;
+      }
+      return sum > 0 ? Math.round(sum) : null;
+    }
+
+    /* ---- Tageskarte ---- */
+    function renderDay() {
+      const dt = parseKey(dayKey);
+      const rel = daysUntil(dayKey);
+      document.getElementById("h-day").textContent =
+        `${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}` +
+        (Math.abs(rel) <= 1 ? ` · ${relativeLabel(rel)}` : "");
+      document.getElementById("todayBtn").hidden = dayKey === todayKey();
+
+      const total = calorieTotal(cal, dayKey);
+      document.getElementById("total").textContent = fmt(total);
+      const meter = document.getElementById("meter");
+      meter.style.width = `${Math.min(100, (total / goal) * 100)}%`;
+      meter.classList.toggle("over", total > goal);
+
+      const line = document.getElementById("goalLine");
+      if (editingGoal) {
+        line.innerHTML = `
+          <form class="goal-form" id="goalForm">
+            <label for="g-in">Tagesziel</label>
+            <input class="input" id="g-in" type="text" inputmode="numeric" value="${goal}" />
+            <button class="link-btn pressable" type="submit">OK</button>
+          </form>`;
+        const inp = line.querySelector("#g-in");
+        inp.focus(); inp.select();
+        line.querySelector("#goalForm").addEventListener("submit", (e) => {
+          e.preventDefault();
+          const v = parseKcal(inp.value);
+          if (v) { goal = v; localStorage.setItem(GOAL_KEY, String(goal)); }
+          editingGoal = false;
+          renderDay(); renderWeek();
+        });
+      } else {
+        const diff = goal - total;
+        const status = diff >= 0
+          ? `noch <b>${fmt(diff)}</b> kcal`
+          : `<b class="is-over">${fmt(-diff)}</b> kcal über Ziel`;
+        line.innerHTML = `<span>${status}</span><button class="goal-btn" id="goalBtn">Ziel ${fmt(goal)} kcal</button>`;
+        line.querySelector("#goalBtn").addEventListener("click", () => { editingGoal = true; renderDay(); });
+      }
+
+      renderEntries();
+      renderRecent();
+    }
+
+    /* ---- Einträge des Tages ---- */
+    function renderEntries() {
+      const list = (cal[dayKey] || []).slice().sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+      document.getElementById("entryCount").textContent = list.length ? String(list.length) : "";
+      const wrap = document.getElementById("entries");
+      if (!list.length) {
+        wrap.innerHTML = `<div class="empty"><div class="t">Noch nichts eingetragen</div>
+          <div class="m">Gib oben die kcal ein, sie werden für den Tag zusammengezählt.</div></div>`;
+        return;
+      }
+      wrap.innerHTML = list.map((e) => `
+        <div class="kcal-row">
+          <span class="ev-text">
+            <span class="t">${escapeHtml(e.name || "Eintrag")}</span>
+            ${e.time ? `<span class="m">${escapeHtml(e.time)} Uhr</span>` : ""}
+          </span>
+          <span class="kv">${fmt(e.kcal)} kcal</span>
+          <button class="del-btn" data-del="${e.id}" aria-label="${escapeAttr((e.name || "Eintrag") + " löschen")}">${ICON.close}</button>
+        </div>`).join("") + `
+        <div class="kcal-row sum"><span class="ev-text"><span class="t">Summe</span></span>
+          <span class="kv">${fmt(calorieTotal(cal, dayKey))} kcal</span><span class="del-space"></span></div>`;
+    }
+    document.getElementById("entries").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-del]");
+      if (!b) return;
+      const key = dayKey;
+      const idx = (cal[key] || []).findIndex((x) => x.id === b.dataset.del);
+      if (idx < 0) return;
+      const [removed] = cal[key].splice(idx, 1);
+      if (!cal[key].length) delete cal[key];
+      saveCalories(cal);
+      renderAll();
+      toast("Eintrag gelöscht", {
+        label: "Rückgängig",
+        run: () => { (cal[key] = cal[key] || []).push(removed); saveCalories(cal); renderAll(); },
+      });
+    });
+
+    /* ---- Zuletzt benutzt: ein Tipp fügt den Eintrag erneut hinzu ---- */
+    function renderRecent() {
+      const seen = new Map();
+      for (const k of Object.keys(cal).sort().reverse()) {
+        for (const e of (cal[k] || []).slice().reverse()) {
+          if (!e.name) continue;
+          const id = e.name.toLowerCase();
+          if (!seen.has(id)) seen.set(id, e);
+          if (seen.size >= 6) break;
+        }
+        if (seen.size >= 6) break;
+      }
+      const el = document.getElementById("recent");
+      el.innerHTML = seen.size
+        ? `<div class="chips-label">Schnell hinzufügen</div>` + [...seen.values()].map((e) =>
+            `<button class="chip pressable" data-name="${escapeAttr(e.name)}" data-kcal="${e.kcal}">
+              ${escapeHtml(e.name)} <span>${fmt(e.kcal)}</span></button>`).join("")
+        : "";
+    }
+    document.getElementById("recent").addEventListener("click", (e) => {
+      const c = e.target.closest(".chip");
+      if (c) addEntry(c.dataset.name, Number(c.dataset.kcal));
+    });
+
+    /* ---- Wochenübersicht ---- */
+    function renderWeek() {
+      const tKey = todayKey();
+      const days = [];
+      for (let i = 0; i < 7; i++) days.push(shiftKey(tKey, -i));
+      const totals = days.map((k) => calorieTotal(cal, k));
+      const logged = totals.filter((t) => t > 0);
+      document.getElementById("weekAvg").textContent =
+        logged.length ? `Ø ${fmt(logged.reduce((a, b) => a + b, 0) / logged.length)} kcal` : "";
+      const max = Math.max(goal, ...totals);
+      document.getElementById("week").innerHTML = days.map((k, i) => {
+        const dt = parseKey(k);
+        const t = totals[i];
+        return `
+          <button class="row week-row ${k === dayKey ? "is-sel" : ""}" data-key="${k}">
+            <span class="datebox ${k === tKey ? "is-today" : ""}">
+              <span class="m">${["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()]}</span>
+              <span class="d">${dt.getDate()}</span>
+            </span>
+            <span class="wbar"><span class="${t > goal ? "over" : ""}" style="width:${(t / max) * 100}%"></span></span>
+            <span class="when">${t ? fmt(t) + " kcal" : "–"}</span>
+          </button>`;
+      }).join("");
+    }
+    document.getElementById("week").addEventListener("click", (e) => {
+      const r = e.target.closest(".week-row");
+      if (r) { dayKey = r.dataset.key; renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    });
+
+    /* ---- Hinzufügen ---- */
+    const nameEl = document.getElementById("f-name");
+    const kcalEl = document.getElementById("f-kcal");
+    const addBtn = document.getElementById("f-add");
+    addBtn.innerHTML = ICON.plus;
+    const syncAdd = () => { addBtn.disabled = parseKcal(kcalEl.value) === null; };
+    kcalEl.addEventListener("input", syncAdd);
+
+    function addEntry(name, kcal) {
+      const now = new Date();
+      (cal[dayKey] = cal[dayKey] || []).push({
+        id: uid(), name: name.trim(), kcal,
+        time: dayKey === todayKey() ? `${pad(now.getHours())}:${pad(now.getMinutes())}` : "",
+      });
+      saveCalories(cal);
+      renderAll();
+      toast(`+${fmt(kcal)} kcal · ${fmt(calorieTotal(cal, dayKey))} gesamt`);
+    }
+    document.getElementById("addForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = parseKcal(kcalEl.value);
+      if (v === null) { kcalEl.focus(); return; }
+      addEntry(nameEl.value, v);
+      nameEl.value = ""; kcalEl.value = ""; syncAdd();
+      if (matchMedia("(pointer: fine)").matches) nameEl.focus();
+    });
+
+    /* ---- Tag wechseln ---- */
+    document.getElementById("prevBtn").innerHTML = ICON.chevL;
+    document.getElementById("nextBtn").innerHTML = ICON.chevR;
+    document.getElementById("prevBtn").addEventListener("click", () => { dayKey = shiftKey(dayKey, -1); renderAll(); });
+    document.getElementById("nextBtn").addEventListener("click", () => { dayKey = shiftKey(dayKey, 1); renderAll(); });
+    document.getElementById("todayBtn").addEventListener("click", () => { dayKey = todayKey(); renderAll(); });
+
+    function renderAll() { editingGoal = false; renderDay(); renderWeek(); }
+
+    mountTabbar("kcal");
+    renderAll();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) { cal = loadCalories(); renderAll(); }
+    });
+  </script>
+</body>
+</html>

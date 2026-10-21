@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Kalender · Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <main class="app">
@@ -62,7 +62,7 @@
     <div id="sheetBody"></div>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
   <script>
     let data = loadEvents();
     const now = new Date();
@@ -230,6 +230,18 @@
       } else {
         body += '<div class="empty"><div class="m">Keine Termine an diesem Tag.</div></div>';
       }
+
+      /* Kalorien des Tages, Tipp öffnet den Tracker für genau diesen Tag */
+      const kc = calorieTotal(loadCalories(), key);
+      body += `
+        <a class="ev-card kcal-link pressable" href="kcal.html?d=${key}">
+          <span class="kcal-ic">${ICON.flame}</span>
+          <span class="ev-text">
+            <span class="t">Kalorien</span>
+            <span class="m">${kc ? `${kc.toLocaleString("de-DE")} kcal` : "Noch nichts eingetragen"}</span>
+          </span>
+          <span class="chev">${ICON.chevR}</span>
+        </a>`;
 
       body += `<button class="btn btn-save pressable" data-new>Neuer Termin</button>`;
       openSheet(body);
