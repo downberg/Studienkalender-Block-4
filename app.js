@@ -273,10 +273,34 @@ function escapeAttr(s) {
   return escapeHtml(s).replace(/"/g, "&quot;");
 }
 
-/* "14:00 · Raum 1.02" oder, wenn beides fehlt, der Kategoriename */
+/* ---- Abkürzungen aus dem Studienplan ausschreiben (nur in der Anzeige) ---- */
+const MODULE_NAMES = {
+  HRL: "Human Resources & Führung",
+  ITGP: "IT-gestützte Geschäftsprozesse",
+  ITM: "IT-Management",
+  WPF: "Wahlpflichtfach",
+};
+const LECTURERS = { Or: "Hr. Ortmann", Hil: "Hr. Hilber", Ost: "Dr. Ostermann" };
+const WORDS = { "Datengetr. Opt.": "Datengetriebene Optimierung", "Präsi": "Präsentation" };
+
+/* "ITGP (1) – Or" -> { title: "IT-gestützte Geschäftsprozesse (1)", lecturer: "Hr. Ortmann" } */
+function splitTitle(raw) {
+  let t = String(raw || "").trim();
+  let lecturer = "";
+  const m = t.match(/^(.*?)\s+[\u2013-]\s+(\S+)$/);
+  if (m && LECTURERS[m[2]]) { t = m[1]; lecturer = LECTURERS[m[2]]; }
+  let expanded = false;
+  t = t.replace(/\b(HRL|ITGP|ITM|WPF)\b/g, (k) => { expanded = true; return MODULE_NAMES[k]; });
+  for (const [k, v] of Object.entries(WORDS)) t = t.replace(k, v);
+  if (expanded && / Klausur$/.test(t)) t = "Klausur " + t.replace(/ Klausur$/, "");
+  return { title: t, lecturer };
+}
+function displayTitle(e) { return splitTitle(e.title).title; }
+
+/* "14:00 · Raum 1.02 · Hr. Ortmann" oder, wenn alles fehlt, der Kategoriename */
 function eventMeta(e) {
   const cat = CATS[e.category] || CATS.lecture;
-  return [e.time, e.location].filter(Boolean).join(" · ") || cat.label;
+  return [e.time, e.location, splitTitle(e.title).lecturer].filter(Boolean).join(" · ") || cat.label;
 }
 
 /* Semester aus dem Datum: Apr-Sep = Sommer, Okt-Mär = Winter */

@@ -9,7 +9,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Studienkalender" />
   <title>Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <main class="app">
@@ -17,6 +21,11 @@
       <h1>Übersicht</h1>
       <p class="sub" id="todayDate"></p>
     </header>
+
+    <section class="dash" aria-labelledby="h-exams" id="examSection" hidden>
+      <div class="section-head"><h2 id="h-exams">Klausuren</h2></div>
+      <div class="group" id="exams"></div>
+    </section>
 
     <section class="dash" aria-labelledby="h-next">
       <div class="section-head"><h2 id="h-next">Nächste Termine</h2></div>
@@ -26,13 +35,37 @@
 
   <nav class="tabbar" id="tabbar" aria-label="Hauptnavigation"></nav>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
   <script>
     const data = loadEvents();
     mountTabbar("home");
 
     document.getElementById("todayDate").textContent =
       `${DAYS_LONG[new Date().getDay()]}, ${new Date().getDate()}. ${MONTHS[new Date().getMonth()]} · ${semesterLabel()}`;
+
+    /* ---- Countdown bis zu den anstehenden Klausuren ---- */
+    const exams = allEventsSorted(data).filter((e) => e.category === "exam" && daysUntil(e.date) >= 0);
+    if (exams.length) {
+      document.getElementById("examSection").hidden = false;
+      document.getElementById("exams").innerHTML = exams.map((e) => {
+        const d = daysUntil(e.date);
+        const dt = parseKey(e.date);
+        const sub = [`${DAYS_LONG[dt.getDay()]}, ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`, e.time]
+          .filter(Boolean).join(" · ");
+        const count = d > 1
+          ? `<span class="num">${d}</span><span class="unit">Tage</span>`
+          : `<span class="num">${relativeLabel(d)}</span>`;
+        return `
+          <a class="row" href="calendar.html?d=${e.date}">
+            <span class="bar bg-exam"></span>
+            <span class="ev-text">
+              <span class="t">${escapeHtml(displayTitle(e))}</span>
+              <span class="m">${escapeHtml(sub)}</span>
+            </span>
+            <span class="count ${d <= 7 ? "soon" : ""}">${count}</span>
+          </a>`;
+      }).join("");
+    }
 
     /* ---- Die nächsten 5 anstehenden Termine (alle Kategorien) ---- */
     const future = allEventsSorted(data).filter((e) => daysUntil(e.date) >= 0);
@@ -58,7 +91,7 @@
             </span>
             <span class="bar bg-${cat.cls}"></span>
             <span class="ev-text">
-              <span class="t">${escapeHtml(e.title)}</span>
+              <span class="t">${escapeHtml(displayTitle(e))}</span>
               <span class="m">${escapeHtml(eventMeta(e))}</span>
             </span>
             <span class="when">${relativeLabel(d)}</span>

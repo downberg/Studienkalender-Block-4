@@ -8,7 +8,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>Kalender · Studienkalender</title>
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <main class="app">
@@ -62,7 +66,7 @@
     <div id="sheetBody"></div>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
   <script>
     let data = loadEvents();
     const now = new Date();
@@ -159,7 +163,7 @@
             </span>
             <span class="bar bg-${cat.cls}"></span>
             <span class="ev-text">
-              <span class="t">${escapeHtml(e.title)}</span>
+              <span class="t">${escapeHtml(displayTitle(e))}</span>
               <span class="m">${escapeHtml(eventMeta(e))}</span>
             </span>
           </button>`;
@@ -221,7 +225,7 @@
             <button class="ev-card pressable" data-edit="${e.id}">
               <span class="bar bg-${cat.cls}"></span>
               <span class="ev-text">
-                <span class="t">${escapeHtml(e.title)}</span>
+                <span class="t">${escapeHtml(displayTitle(e))}</span>
                 <span class="m">${escapeHtml(eventMeta(e))}</span>
               </span>
               <span class="chev">${ICON.chevR}</span>
