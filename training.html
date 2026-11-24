@@ -12,37 +12,40 @@
   <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <main class="app page">
     <header class="page-head">
       <h1>Training</h1>
-      <p class="sub">Alle zwei Tage Gym, dazwischen ein Ruhetag</p>
+      <p class="sub">Oberkörper-Plan · Montag bis Donnerstag</p>
     </header>
 
     <div class="train-layout">
       <div>
-        <section aria-labelledby="h-today">
-          <div class="section-head"><h2 id="h-today">Heute</h2></div>
-          <div class="today-card" id="today"></div>
-        </section>
-
-        <section aria-labelledby="h-days">
-          <div class="section-head"><h2 id="h-days">Nächste 14 Tage</h2></div>
-          <div class="strip" id="strip"></div>
-          <p class="strip-note">Markierte Tage sind Trainingstage. A und B wechseln sich ab. Nicht abgehakte Übungen kommen beim nächsten Training dazu.</p>
+        <nav class="tw-rail" id="rail" aria-label="Trainingstag wählen"></nav>
+        <section class="tw-hero" id="hero" aria-live="polite"></section>
+        <section aria-labelledby="h-ex" id="exWrap">
+          <div class="section-head"><h2 id="h-ex">Übungen</h2><span class="meta" id="exMeta"></span></div>
+          <ol class="tw-list" id="exList"></ol>
         </section>
       </div>
 
-      <section aria-labelledby="h-plan">
-        <div class="section-head"><h2 id="h-plan">Dein Plan</h2></div>
-        <div class="plan-grid" id="plan"></div>
-      </section>
-    </div>
-
-    <div class="reset-wrap">
-      <button class="quiet-btn" id="shiftBtn"><span id="shiftIcon"></span>Rhythmus um einen Tag verschieben</button>
+      <div>
+        <section aria-labelledby="h-vol">
+          <div class="section-head"><h2 id="h-vol">Sätze pro Woche</h2><span class="meta">je Muskel</span></div>
+          <div class="tw-vol" id="vol"></div>
+        </section>
+        <section aria-labelledby="h-rules">
+          <div class="section-head"><h2 id="h-rules">So trainierst du</h2></div>
+          <div class="tw-rules">
+            <div class="tw-rule"><span class="k">01</span><div><b>Aufwärmen</b><span>5 Min. Rudergerät oder Crosstrainer, dann 2 leichte Sätze der ersten Übung.</span></div></div>
+            <div class="tw-rule"><span class="k">02</span><div><b>Doppelte Progression</b><span>Schaffst du in allen Sätzen das obere Ende der Wiederholungen, nimm nächstes Mal 2,5 kg mehr.</span></div></div>
+            <div class="tw-rule"><span class="k">03</span><div><b>1–2 Wdh. im Tank</b><span>Jeder Satz endet kurz vor dem Muskelversagen, mit sauberer Technik.</span></div></div>
+            <div class="tw-rule"><span class="k">04</span><div><b>Fr bis So Pause</b><span>Drei Tage Regeneration. Viel Eiweiß (ca. 2 g pro kg Körpergewicht) und 7–9 Std. Schlaf.</span></div></div>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -51,189 +54,179 @@
   <script src="app.js?v=8"></script>
   <script>
     /* ===========================================================
-       Trainingsplan: alle zwei Tage Gym, Einheiten A und B im Wechsel.
-       Übungen hier anpassen: name = Übung, muscle = Muskelgruppe, sets = Sätze x Wiederholungen.
+       Trainingsplan: 4 Tage Oberkörper, Montag bis Donnerstag.
+       Jeder Muskel wird zweimal pro Woche trainiert.
+       Übung anpassen: name, sets (Anzahl), reps, rest (Pause), tip (Technik),
+       hit = { Muskel: Anteil } für die Wochenübersicht (1 = voll, 0.5 = mit).
        =========================================================== */
-    const WORKOUTS = [
-      { key: "A", name: "Einheit A", exercises: [
-        { name: "Bankdrücken", muscle: "Brust", sets: "3 × 8-10" },
-        { name: "Latzug", muscle: "Rücken", sets: "3 × 10-12" },
-        { name: "Schulterdrücken", muscle: "Schultern", sets: "3 × 10-12" },
-        { name: "Rudern am Kabel", muscle: "Rücken", sets: "3 × 10-12" },
-        { name: "Bizeps-Curls", muscle: "Bizeps", sets: "3 × 10-12" },
-        { name: "Trizepsdrücken", muscle: "Trizeps", sets: "3 × 10-12" },
-        { name: "Beinpresse", muscle: "Beine", sets: "3 × 10-12" },
+    const PLAN = [
+      { dow: 1, short: "Push", title: "Brust & Schultern", focus: ["Brust", "Schultern", "Trizeps"], exercises: [
+        { name: "Bankdrücken (Langhantel)", sets: 4, reps: "6–8", rest: "2:30", hit: { Brust: 1, Trizeps: 0.5 },
+          tip: "Schulterblätter zusammen und nach unten, Füße fest am Boden. Stange zur unteren Brust führen." },
+        { name: "Schrägbankdrücken (Kurzhantel)", sets: 3, reps: "8–10", rest: "2:00", hit: { Brust: 1, Schultern: 0.5 },
+          tip: "Bank auf 30°. Unten tief dehnen, oben die Hanteln nicht zusammenschlagen." },
+        { name: "Schulterdrücken sitzend (Kurzhantel)", sets: 3, reps: "8–10", rest: "2:00", hit: { Schultern: 1, Trizeps: 0.5 },
+          tip: "Rücken an der Lehne, Ellbogen leicht vor dem Körper. Kein Hohlkreuz." },
+        { name: "Seitheben (Kurzhantel)", sets: 4, reps: "12–15", rest: "1:00", hit: { Schultern: 1 },
+          tip: "Leicht vorgebeugt, Ellbogen führen. Nur bis Schulterhöhe, langsam ablassen." },
+        { name: "Cable Flys (Kabelzug)", sets: 3, reps: "12–15", rest: "1:00", hit: { Brust: 1 },
+          tip: "Kabel auf Brusthöhe, leicht gebeugte Arme. In der Mitte 1 Sekunde zusammendrücken." },
+        { name: "Trizepsdrücken am Seil", sets: 3, reps: "10–12", rest: "1:00", hit: { Trizeps: 1 },
+          tip: "Ellbogen fest am Körper, unten das Seil auseinanderziehen." },
       ] },
-      { key: "B", name: "Einheit B", exercises: [
-        { name: "Schrägbankdrücken", muscle: "Brust", sets: "3 × 8-10" },
-        { name: "Latzug eng", muscle: "Rücken", sets: "3 × 10-12" },
-        { name: "Seitheben", muscle: "Schultern", sets: "3 × 12-15" },
-        { name: "Rudern an der Maschine", muscle: "Rücken", sets: "3 × 10-12" },
-        { name: "Hammer-Curls", muscle: "Bizeps", sets: "3 × 10-12" },
-        { name: "Trizeps über Kopf", muscle: "Trizeps", sets: "3 × 10-12" },
-        { name: "Kniebeuge", muscle: "Beine", sets: "3 × 8-10" },
+      { dow: 2, short: "Pull", title: "Rücken & Bizeps", focus: ["Rücken", "Bizeps", "hintere Schulter"], exercises: [
+        { name: "Klimmzüge (oder Latzug)", sets: 4, reps: "6–10", rest: "2:30", hit: { Rücken: 1, Bizeps: 0.5 },
+          tip: "Brust zur Stange, Schulterblätter zuerst nach unten ziehen. Schaffst du keine 6, nimm den Latzug." },
+        { name: "Langhantelrudern", sets: 4, reps: "8–10", rest: "2:00", hit: { Rücken: 1, Bizeps: 0.5 },
+          tip: "Oberkörper ca. 45° vorgebeugt, Rücken gerade. Stange zum Bauchnabel ziehen." },
+        { name: "Latzug eng (neutraler Griff)", sets: 3, reps: "10–12", rest: "1:30", hit: { Rücken: 1 },
+          tip: "Leicht zurücklehnen, Ellbogen zur Hüfte ziehen. Oben voll strecken." },
+        { name: "Face Pulls", sets: 3, reps: "15", rest: "1:00", hit: { Schultern: 1 },
+          tip: "Seil auf Augenhöhe, Richtung Stirn ziehen und Hände nach außen drehen. Gut für gesunde Schultern." },
+        { name: "SZ-Curls", sets: 3, reps: "8–10", rest: "1:30", hit: { Bizeps: 1 },
+          tip: "Ellbogen bleiben ruhig neben dem Körper, kein Schwung aus dem Rücken." },
+        { name: "Hammer-Curls", sets: 3, reps: "10–12", rest: "1:00", hit: { Bizeps: 1 },
+          tip: "Daumen zeigt nach oben. Trainiert auch den Unterarm." },
+        { name: "Hanging Leg Raises", sets: 3, reps: "10–15", rest: "1:00", hit: { Bauch: 1 },
+          tip: "Becken nach oben einrollen, nicht nur die Beine schwingen." },
+      ] },
+      { dow: 3, short: "Arme", title: "Schultern & Arme", focus: ["Schultern", "Bizeps", "Trizeps"], exercises: [
+        { name: "Arnold Press", sets: 3, reps: "8–10", rest: "2:00", hit: { Schultern: 1, Trizeps: 0.5 },
+          tip: "Handflächen starten zu dir, beim Drücken nach vorne drehen. Kontrolliert ablassen." },
+        { name: "Seitheben am Kabel", sets: 4, reps: "12–15", rest: "1:00", hit: { Schultern: 1 },
+          tip: "Einarmig, Kabel hinter dem Körper. Konstante Spannung über die ganze Bewegung." },
+        { name: "Reverse Flys (Maschine)", sets: 3, reps: "12–15", rest: "1:00", hit: { Schultern: 1, Rücken: 0.5 },
+          tip: "Arme fast gestreckt, Bewegung kommt aus der hinteren Schulter, nicht aus dem Nacken." },
+        { name: "Dips (oder enges Bankdrücken)", sets: 3, reps: "8–10", rest: "2:00", hit: { Trizeps: 1, Brust: 0.5 },
+          tip: "Oberkörper aufrecht für mehr Trizeps. Nur so tief, wie die Schulter es angenehm erlaubt." },
+        { name: "Schrägbank-Curls (Kurzhantel)", sets: 3, reps: "10–12", rest: "1:00", hit: { Bizeps: 1 },
+          tip: "Bank auf 45°, Arme hängen hinter dem Körper. Starke Dehnung unten." },
+        { name: "Trizeps über Kopf am Kabel", sets: 3, reps: "10–12", rest: "1:00", hit: { Trizeps: 1 },
+          tip: "Ellbogen zeigen nach vorne und bleiben eng. Unten tief dehnen." },
+        { name: "Shrugs (Kurzhantel)", sets: 3, reps: "12–15", rest: "1:00", hit: { Nacken: 1 },
+          tip: "Schultern gerade nach oben zu den Ohren ziehen, oben 1 Sekunde halten. Nicht kreisen." },
+      ] },
+      { dow: 4, short: "Upper", title: "Brust & Rücken", focus: ["Brust", "Rücken", "Schultern"], exercises: [
+        { name: "Schrägbankdrücken (Langhantel)", sets: 4, reps: "6–8", rest: "2:30", hit: { Brust: 1, Schultern: 0.5, Trizeps: 0.5 },
+          tip: "Bank auf 30°. Stange zum oberen Brustbereich, Ellbogen ca. 45° vom Körper." },
+        { name: "Rudern am Kabel (sitzend)", sets: 4, reps: "10–12", rest: "2:00", hit: { Rücken: 1, Bizeps: 0.5 },
+          tip: "Brust raus, Griff zum Bauch ziehen und Schulterblätter zusammendrücken." },
+        { name: "Brustpresse (Maschine)", sets: 3, reps: "10–12", rest: "1:30", hit: { Brust: 1, Trizeps: 0.5 },
+          tip: "Griffe auf Brusthöhe, oben nicht ganz durchstrecken, damit die Spannung bleibt." },
+        { name: "Latzug breit", sets: 3, reps: "10–12", rest: "1:30", hit: { Rücken: 1, Bizeps: 0.5 },
+          tip: "Stange zur oberen Brust, nicht in den Nacken. Ellbogen nach unten führen." },
+        { name: "Butterfly (Maschine)", sets: 3, reps: "12–15", rest: "1:00", hit: { Brust: 1 },
+          tip: "Langsam öffnen und in der Mitte kurz halten." },
+        { name: "Überzüge am Kabel", sets: 3, reps: "12–15", rest: "1:00", hit: { Rücken: 1 },
+          tip: "Arme fast gestreckt, Stange im Bogen bis zu den Oberschenkeln drücken. Isoliert den Latissimus." },
+        { name: "Kabel-Crunches", sets: 3, reps: "12–15", rest: "1:00", hit: { Bauch: 1 },
+          tip: "Kniend, Seil am Kopf. Wirbelsäule einrollen, nicht aus der Hüfte ziehen." },
       ] },
     ];
+    const DAY_NAMES = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+    const DAY_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
-    const BASE = "2026-10-07";            // erster Trainingstag (Einheit A)
-    const SHIFT_KEY = "training_shift";   // "1" = Rhythmus um einen Tag verschoben
-    const DONE_KEY = "training_done";     // alt: Liste komplett erledigter Tage
-    const CHECK_KEY = "training_checks";  // { "YYYY-MM-DD": [Index abgehakter Übungen] }
-    const DAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+    /* Alte Daten vom früheren 2-Tage-Split aufräumen */
+    ["training_shift", "training_done", "training_checks"].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
 
-    function store(key, fallback) {
-      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
-    }
-    let shift = store(SHIFT_KEY, 0) ? 1 : 0;
-    let checks = store(CHECK_KEY, {});
-    /* Einträge älter als 60 Tage entfernen, damit der Speicher klein bleibt */
-    for (const k of Object.keys(checks)) if (daysUntil(k) < -60) delete checks[k];
-    /* Übernahme aus der alten Ganz-oder-gar-nicht-Markierung */
-    for (const k of store(DONE_KEY, [])) {
-      if (!checks[k] && daysUntil(k) >= -60) checks[k] = "all";
-    }
-    localStorage.removeItem(DONE_KEY);
-    /* Einheitliches Format: pro Tag die Namen der abgehakten Übungen */
-    for (const [k, v] of Object.entries(checks)) {
-      const w = workoutOn(k);
-      if (v === "all") checks[k] = w ? w.exercises.map((x) => x.name) : [];
-      else if (Array.isArray(v)) {
-        checks[k] = v.map((i) => (typeof i === "number" ? (w && w.exercises[i] ? w.exercises[i].name : null) : i))
-          .filter(Boolean);
-      } else delete checks[k];
-    }
-    const saveChecks = () => localStorage.setItem(CHECK_KEY, JSON.stringify(checks));
-    saveChecks();
+    const todayDow = () => new Date().getDay();
+    const planFor = (dow) => PLAN.find((p) => p.dow === dow) || null;
+    let selected = todayDow();  // 1–4 = Trainingstag, sonst Ruhe
 
-    /* Welche Einheit an einem Tag ansteht, oder null für Ruhetag */
-    function workoutOn(key) {
-      const n = Math.round((parseKey(key) - parseKey(BASE)) / 86400000) - shift;
-      if (((n % 2) + 2) % 2 !== 0) return null;
-      const idx = (((n / 2) % WORKOUTS.length) + WORKOUTS.length) % WORKOUTS.length;
-      return WORKOUTS[idx];
-    }
-    function keyPlus(days) {
-      const d = new Date();
-      return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
-    }
-    function keyOffset(key, days) {
-      const d = parseKey(key);
-      return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+    const totalSets = (p) => p.exercises.reduce((a, x) => a + x.sets, 0);
+    const restSec = (r) => { const [m, s] = r.split(":").map(Number); return m * 60 + s; };
+    /* Grobe Dauer: Sätze à ~45 s plus Pausen plus 10 Min. Aufwärmen */
+    const duration = (p) => Math.round((p.exercises.reduce((a, x) => a + x.sets * (45 + restSec(x.rest)), 0) / 60 + 10) / 5) * 5;
+
+    function renderRail() {
+      const t = todayDow();
+      const tile = (dow, top, bottom) => {
+        const isRest = dow === 0;
+        const on = isRest ? !planFor(selected) : selected === dow;
+        const isToday = isRest ? !planFor(t) : t === dow;
+        return `<button class="tw-tile pressable ${isRest ? "rest" : ""}" aria-pressed="${on}" data-dow="${dow}">
+          <span class="d">${top}</span><span class="f">${bottom}</span>${isToday ? '<span class="now">Heute</span>' : ""}</button>`;
+      };
+      document.getElementById("rail").innerHTML =
+        PLAN.map((p) => tile(p.dow, DAY_SHORT[p.dow], p.short)).join("") + tile(0, "Fr–So", "Ruhe");
+      document.querySelectorAll(".tw-tile").forEach((b) => b.addEventListener("click", () => {
+        selected = Number(b.dataset.dow);
+        render();
+      }));
     }
 
-    /* Nachholen: Übungen, die am vorherigen Trainingstag (zwei Tage davor) offen blieben.
-       Gilt erst, wenn dieser Tag vorbei ist (ab 0:00 Uhr des Folgetags).
-       Übungen, die an diesem Tag ohnehin im Plan stehen, kommen nicht doppelt. */
-    function carriedInto(key) {
-      const from = keyOffset(key, -2);
-      const prev = workoutOn(from);
-      const cur = workoutOn(key);
-      if (!prev || !cur || from < BASE || from >= todayKey()) return { from, items: [] };
-      const doneNames = new Set(checks[from] || []);
-      const own = new Set(cur.exercises.map((x) => x.name));
-      return { from, items: prev.exercises.filter((x) => !doneNames.has(x.name) && !own.has(x.name)) };
-    }
-
-    const exHTML = (w) => w.exercises.map((x) =>
-      `<div class="ex"><span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span><span class="s">${escapeHtml(x.sets)}</span></div>`).join("");
-
-    /* ---- Heute: jede Übung einzeln abhaken, offene vom letzten Mal nachholen ---- */
-    function renderToday() {
-      const tKey = todayKey();
-      const w = workoutOn(tKey);
-      const el = document.getElementById("today");
-      if (!w) {
-        const nextKey = keyPlus(1);
-        const next = workoutOn(nextKey);
-        const n = carriedInto(nextKey).items.length;
+    function renderHero() {
+      const p = planFor(selected);
+      const el = document.getElementById("hero");
+      const isToday = selected === todayDow() || (!p && !planFor(todayDow()));
+      if (!p) {
+        el.className = "tw-hero is-rest";
         el.innerHTML = `
-          <div class="today-kind">Ruhetag</div>
-          <div class="today-sub">Nächstes Training morgen: ${next.name}${
-            n ? `, dazu ${n} ${n === 1 ? "Übung" : "Übungen"} zum Nachholen` : ""}</div>`;
+          <div class="tw-eyebrow">${isToday ? "Heute · " : ""}Freitag bis Sonntag</div>
+          <div class="tw-title">Regeneration</div>
+          <p class="tw-desc">Muskeln wachsen in der Pause. Leichter Spaziergang oder Dehnen ist super, schweres Training nicht.</p>
+          <div class="tw-next">Montag geht es weiter mit <b>${PLAN[0].title}</b></div>`;
         return;
       }
-      const carried = carriedInto(tKey);
-      const all = [...w.exercises, ...carried.items];
-      const names = new Set(all.map((x) => x.name));
-      const set = new Set((checks[tKey] || []).filter((n) => names.has(n)));
-      const allDone = set.size === all.length;
-
-      const row = (x) => `
-        <button class="ex check" role="checkbox" aria-checked="${set.has(x.name)}" data-name="${escapeAttr(x.name)}">
-          <span class="box" aria-hidden="true">${ICON.check}</span>
-          <span class="n">${escapeHtml(x.name)}<span class="mu">${escapeHtml(x.muscle || "")}</span></span>
-          <span class="s">${escapeHtml(x.sets)}</span>
-        </button>`;
-      const fromDt = parseKey(carried.from);
-
+      const idx = PLAN.indexOf(p) + 1;
+      el.className = "tw-hero";
       el.innerHTML = `
-        <div class="today-kind is-gym">Trainingstag</div>
-        <div class="today-sub">${w.name} · <span id="progress">${set.size} von ${all.length} erledigt</span></div>
-        <div class="ex-list">
-          ${w.exercises.map(row).join("")}
-          ${carried.items.length ? `
-            <div class="ex-sub">Nachholen vom ${DAYS_LONG[fromDt.getDay()]}, ${fromDt.getDate()}. ${MONTHS[fromDt.getMonth()]}</div>
-            ${carried.items.map(row).join("")}` : ""}
-        </div>
-        <button class="btn btn-cancel pressable" id="allBtn">${allDone ? "Alle zurücksetzen" : "Alle abhaken"}</button>`;
-
-      el.querySelectorAll(".check").forEach((b) => b.addEventListener("click", () => {
-        const name = b.dataset.name;
-        if (set.has(name)) set.delete(name); else set.add(name);
-        checks[tKey] = [...set];
-        saveChecks();
-        renderToday();
-        if (set.size === all.length) toast("Training erledigt");
-      }));
-      el.querySelector("#allBtn").addEventListener("click", () => {
-        checks[tKey] = allDone ? [] : all.map((x) => x.name);
-        saveChecks();
-        renderToday();
-        if (!allDone) toast("Training erledigt");
-      });
+        <div class="tw-eyebrow">${isToday ? "Heute · " : ""}${DAY_NAMES[p.dow]} · Tag ${idx} von 4</div>
+        <div class="tw-title">${escapeHtml(p.title)}</div>
+        <div class="tw-chips">${p.focus.map((f) => `<span>${escapeHtml(f)}</span>`).join("")}</div>
+        <div class="tw-stats">
+          <div><b>${p.exercises.length}</b><span>Übungen</span></div>
+          <div><b>${totalSets(p)}</b><span>Sätze</span></div>
+          <div><b>~${duration(p)}</b><span>Minuten</span></div>
+        </div>`;
     }
 
-    /* ---- Nächste 14 Tage ---- */
-    function renderStrip() {
-      let html = "";
-      for (let i = 0; i < 14; i++) {
-        const key = keyPlus(i);
-        const dt = parseKey(key);
-        const w = workoutOn(key);
-        const label = `${formatLongDate(key)}: ${w ? w.name : "Ruhetag"}`;
-        html += `
-          <div class="day ${w ? "gym" : ""} ${i === 0 ? "today" : ""}" aria-label="${label}">
-            <span class="wd" aria-hidden="true">${DAYS_SHORT[dt.getDay()]}</span>
-            <span class="mark" aria-hidden="true">${dt.getDate()}</span>
-            <span class="tag" aria-hidden="true">${w ? w.key : ""}</span>
-          </div>`;
-      }
-      document.getElementById("strip").innerHTML = html;
+    function renderExercises() {
+      const p = planFor(selected);
+      const wrap = document.getElementById("exWrap");
+      if (!p) { wrap.hidden = true; return; }
+      wrap.hidden = false;
+      document.getElementById("exMeta").textContent = "Tippen für Technik";
+      document.getElementById("exList").innerHTML = p.exercises.map((x, i) => `
+        <li class="tw-ex">
+          <details>
+            <summary>
+              <span class="num">${String(i + 1).padStart(2, "0")}</span>
+              <span class="body">
+                <span class="name">${escapeHtml(x.name)}</span>
+                <span class="meta">${escapeHtml(Object.keys(x.hit)[0])} · ${x.rest} Pause</span>
+              </span>
+              <span class="dose"><b>${x.sets}×</b>${escapeHtml(x.reps)}</span>
+            </summary>
+            <p class="tip">${escapeHtml(x.tip)}</p>
+          </details>
+        </li>`).join("");
     }
 
-    /* ---- Plan ---- */
-    document.getElementById("plan").innerHTML = WORKOUTS.map((w) => `
-      <div>
-        <h3 class="plan-name">${w.name}</h3>
-        <div class="group">${exHTML(w)}</div>
-      </div>`).join("");
+    function renderVolume() {
+      const vol = {};
+      for (const p of PLAN) for (const x of p.exercises)
+        for (const [m, f] of Object.entries(x.hit)) vol[m] = (vol[m] || 0) + x.sets * f;
+      const order = ["Brust", "Rücken", "Schultern", "Bizeps", "Trizeps", "Nacken", "Bauch"];
+      const max = Math.max(...Object.values(vol));
+      const sel = planFor(selected);
+      const selHits = new Set(sel ? sel.exercises.flatMap((x) => Object.keys(x.hit)) : []);
+      document.getElementById("vol").innerHTML = order.filter((m) => vol[m]).map((m) => `
+        <div class="tw-bar ${selHits.has(m) ? "on" : ""}">
+          <span class="m">${m}</span>
+          <span class="track"><span style="width:${(vol[m] / max) * 100}%"></span></span>
+          <span class="v">${Math.round(vol[m])}</span>
+        </div>`).join("") +
+        `<p class="tw-foot">Mitbelastung zählt als halber Satz. Hervorgehoben: Muskeln am gewählten Tag.</p>`;
+    }
 
-    /* ---- Rhythmus verschieben (nochmal tippen stellt zurück) ---- */
-    document.getElementById("shiftIcon").innerHTML = ICON.shift;
-    document.getElementById("shiftBtn").addEventListener("click", () => {
-      shift = shift ? 0 : 1;
-      localStorage.setItem(SHIFT_KEY, JSON.stringify(shift));
-      renderToday();
-      renderStrip();
-      toast(workoutOn(todayKey()) ? "Heute ist jetzt Trainingstag" : "Heute ist jetzt Ruhetag");
-    });
+    function render() { renderRail(); renderHero(); renderExercises(); renderVolume(); }
 
     mountTabbar("gym");
-    renderToday();
-    renderStrip();
-    /* Nach Mitternacht oder beim Zurückkehren in die App neu berechnen */
+    render();
+    /* Beim Zurückkehren in die App auf den aktuellen Wochentag springen */
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) { renderToday(); renderStrip(); }
+      if (!document.hidden) { selected = todayDow(); render(); }
     });
   </script>
 </body>
