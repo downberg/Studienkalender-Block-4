@@ -1017,9 +1017,14 @@ body::before {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
   transition: background-color 200ms ease, border-color 200ms ease, transform 160ms var(--ease-out);
 }
 .tw-ex:active { transform: scale(0.985); }
+/* Beim Gedrückthalten langsam kleiner werden, bis die Ausführung aufgeht */
+.tw-ex.holding { transform: scale(0.965); transition: transform 450ms var(--ease-out); }
+.tw-hint { font-size: 13px; color: var(--text-3); margin: -4px 2px 10px; }
 .tw-ex .row1 { display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 64px; }
 .tw-ex .num {
   flex: 0 0 auto;
@@ -1033,12 +1038,6 @@ body::before {
 .tw-ex .body { flex: 1; min-width: 0; }
 .tw-ex .name { display: block; font-size: 16px; font-weight: 600; line-height: 1.25; }
 .tw-ex .meta { display: block; font-size: 13px; color: var(--text-2); margin-top: 2px; }
-.tw-ex .tip-btn {
-  color: var(--accent);
-  font-size: 13px; font-weight: 600;
-  padding: 4px 0; margin: -4px 0;
-  background: none;
-}
 .tw-ex .dose {
   flex: 0 0 auto;
   display: flex; align-items: baseline; gap: 2px;
@@ -1050,12 +1049,18 @@ body::before {
 }
 .tw-ex .dose b { color: var(--accent); font-weight: 800; }
 .tw-ex .tip {
-  margin: -4px 16px 0 54px;
-  padding: 0 0 14px;
+  margin: 0 16px 14px 54px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
   font-size: 14px;
   color: var(--text-2);
   line-height: 1.45;
+  animation: tw-tip-in 220ms var(--ease-out);
 }
+.tw-ex .tip b { display: block; font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.tw-ex.done .tip { background: rgba(217, 45, 32, 0.06); }
+@keyframes tw-tip-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .tw-ex .tip[hidden] { display: none; }
 
 /* Erledigt: dezenter Rot-Ton, Inhalt zurückgenommen */

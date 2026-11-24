@@ -12,7 +12,7 @@
   <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <main class="app page">
@@ -27,6 +27,7 @@
         <section class="tw-hero" id="hero" aria-live="polite"></section>
         <section aria-labelledby="h-ex" id="exWrap">
           <div class="section-head"><h2 id="h-ex">Übungen</h2><span class="meta" id="exMeta"></span></div>
+          <p class="tw-hint">Antippen = erledigt · Gedrückt halten = Ausführung</p>
           <ol class="tw-list" id="exList"></ol>
         </section>
       </div>
@@ -193,6 +194,7 @@
       return toKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - mon + (dow + 6) % 7));
     }
 
+    const openTips = new Set();
     function renderExercises() {
       const p = planFor(selected);
       const wrap = document.getElementById("exWrap");
@@ -201,7 +203,7 @@
       const key = dateForDow(p.dow);
       const set = new Set(done[key] || []);
       const n = p.exercises.filter((x) => set.has(x.name)).length;
-      document.getElementById("exMeta").textContent = n ? `${n} von ${p.exercises.length} erledigt` : "Antippen zum Abhaken";
+      document.getElementById("exMeta").textContent = `${n} von ${p.exercises.length} erledigt`;
       const list = document.getElementById("exList");
       list.innerHTML = p.exercises.map((x, i) => {
         const on = set.has(x.name);
@@ -211,11 +213,11 @@
             <span class="num">${on ? ICON.check : String(i + 1).padStart(2, "0")}</span>
             <span class="body">
               <span class="name">${escapeHtml(x.name)}</span>
-              <span class="meta">${escapeHtml(Object.keys(x.hit)[0])} · ${x.rest} Pause · <button class="tip-btn" aria-expanded="false">Technik</button></span>
+              <span class="meta">${escapeHtml(Object.keys(x.hit)[0])} · ${x.rest} Pause</span>
             </span>
             <span class="dose"><b>${x.sets}×</b>${escapeHtml(x.reps)}</span>
           </div>
-          <p class="tip" hidden>${escapeHtml(x.tip)}</p>
+          <p class="tip" hidden><b>Ausführung</b>${escapeHtml(x.tip)}</p>
         </li>`;
       }).join("");
 
@@ -227,17 +229,35 @@
         renderExercises();
         if (set.size === p.exercises.length) toast("Training erledigt 💪");
       };
+      /* Ausführung ein-/ausblenden, offene bleiben nach dem Abhaken offen */
+      const showTip = (li) => {
+        const tip = li.querySelector(".tip");
+        tip.hidden = !tip.hidden;
+        li.classList.toggle("open", !tip.hidden);
+        if (tip.hidden) openTips.delete(li.dataset.name); else openTips.add(li.dataset.name);
+        if (navigator.vibrate) navigator.vibrate(12);
+      };
       list.querySelectorAll(".tw-ex").forEach((li) => {
-        li.addEventListener("click", () => toggle(li));
-        li.addEventListener("keydown", (e) => {
-          if (e.target === li && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggle(li); }
+        if (openTips.has(li.dataset.name)) { li.querySelector(".tip").hidden = false; li.classList.add("open"); }
+        let timer = null, longFired = false, sx = 0, sy = 0;
+        const cancel = () => { clearTimeout(timer); timer = null; li.classList.remove("holding"); };
+        li.addEventListener("pointerdown", (e) => {
+          longFired = false; sx = e.clientX; sy = e.clientY;
+          li.classList.add("holding");
+          timer = setTimeout(() => { longFired = true; cancel(); showTip(li); }, 450);
         });
-        const btn = li.querySelector(".tip-btn");
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const tip = li.querySelector(".tip");
-          tip.hidden = !tip.hidden;
-          btn.setAttribute("aria-expanded", String(!tip.hidden));
+        li.addEventListener("pointermove", (e) => {
+          if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel();
+        });
+        ["pointerup", "pointercancel", "pointerleave"].forEach((t) => li.addEventListener(t, cancel));
+        li.addEventListener("contextmenu", (e) => e.preventDefault());
+        li.addEventListener("click", () => {
+          if (longFired) { longFired = false; return; }
+          toggle(li);
+        });
+        li.addEventListener("keydown", (e) => {
+          if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(li); }
+          if (e.key === "i") showTip(li);
         });
       });
     }
